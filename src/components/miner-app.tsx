@@ -19,6 +19,7 @@ import type { MineStats } from "@/lib/mine-controller";
 import {
   COINS,
   poolsForCoin,
+  resolvePoolStatusUrl,
   type CoinId,
   type PoolInfo,
 } from "@/lib/pools";
@@ -396,6 +397,26 @@ export function MinerApp() {
   }, [network, liveHashrate, locale, mode]);
 
   const highDiff = mode === "pool" && poolStats.difficulty >= 1 && mining;
+
+  const poolStatusHref = useMemo(() => {
+    if (mode !== "pool" || !selectedPool) return null;
+    return resolvePoolStatusUrl(selectedPool, address);
+  }, [mode, selectedPool, address]);
+
+  const poolStatusDeepLinked = Boolean(
+    poolStatusHref &&
+      selectedPool?.statusUrlTemplate &&
+      address.trim()
+  );
+
+  const showPoolStatusLink =
+    mode === "pool" &&
+    Boolean(poolStatusHref) &&
+    (mining ||
+      poolStats.status === "authorized" ||
+      poolStats.status === "waiting_job" ||
+      poolStats.status === "mining" ||
+      poolStats.status === "connecting");
   const scryptCoin = coin === "LTC" || coin === "DOGE";
 
   const statusUi = useMemo(() => {
@@ -567,6 +588,24 @@ export function MinerApp() {
                 {t("poolSearchNote")}
               </div>
             )}
+          {showPoolStatusLink && poolStatusHref && (
+            <div className="sm:col-span-3 flex flex-col gap-1">
+              <a
+                href={poolStatusHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pixel-btn inline-flex w-fit items-center gap-2 border-2 border-brand bg-brand/15 px-3 py-2 text-sm font-semibold text-brand hover:bg-brand hover:text-zinc-950"
+              >
+                {t("viewPoolStatus")}
+                <span aria-hidden>↗</span>
+              </a>
+              <p className="text-xs text-muted">
+                {poolStatusDeepLinked
+                  ? t("viewPoolStatusHint")
+                  : t("viewPoolStatusPaste")}
+              </p>
+            </div>
+          )}
           {mining && poolStats.workerCount === 0 && poolStats.status === "mining" && (
               <div className="sm:col-span-3 text-xs text-danger">
                 {t("workers")} = 0（瀏覽器雜湊執行緒未啟動 — 請硬重新整理）
@@ -589,7 +628,7 @@ export function MinerApp() {
         <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("highDiffWarn")}
           <div className="mt-1 text-xs opacity-80">
-            {t("buildStamp")}: nerd-ua-r3
+            {t("buildStamp")}: pool-status-r1
             {stratumUserShown ? ` · ${t("stratumUser")}: ${stratumUserShown}` : ""}
           </div>
         </div>
@@ -758,32 +797,52 @@ export function MinerApp() {
                   <div className="mb-2 grid gap-2 sm:grid-cols-1">
                     {pools.map((p) => {
                       const sel = selectedPool?.id === p.id;
+                      const statusHref = resolvePoolStatusUrl(p, address);
                       return (
-                        <button
+                        <div
                           key={p.id}
-                          type="button"
-                          disabled={mining}
-                          onClick={() => setPoolId(p.id)}
-                          className={`border-2 p-3 text-left text-sm transition disabled:opacity-50 ${
+                          className={`border-2 transition ${
                             sel
                               ? "border-brand shadow-[inset_0_0_0_1px_#f5a623]"
                               : "border-border hover:border-zinc-500"
                           }`}
                           style={{ borderRadius: 0 }}
                         >
-                          <div className="font-medium text-zinc-100">
-                            {p.name}{" "}
-                            <span className="ml-1 border border-border px-1 text-[10px] uppercase text-btc">
-                              {p.kind === "solo" ? t("kindSolo") : t("kindPool")}
-                            </span>
-                          </div>
-                          <div className="mono mt-1 text-xs text-muted">
-                            {p.host}:{p.port}
-                          </div>
-                          <div className="mt-1 text-xs text-muted">
-                            {locale === "en" ? p.feeNote_en : p.feeNote_zh}
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            disabled={mining}
+                            onClick={() => setPoolId(p.id)}
+                            className="w-full p-3 text-left text-sm disabled:opacity-50"
+                            style={{ borderRadius: 0 }}
+                          >
+                            <div className="font-medium text-zinc-100">
+                              {p.name}{" "}
+                              <span className="ml-1 border border-border px-1 text-[10px] uppercase text-btc">
+                                {p.kind === "solo"
+                                  ? t("kindSolo")
+                                  : t("kindPool")}
+                              </span>
+                            </div>
+                            <div className="mono mt-1 text-xs text-muted">
+                              {p.host}:{p.port}
+                            </div>
+                            <div className="mt-1 text-xs text-muted">
+                              {locale === "en" ? p.feeNote_en : p.feeNote_zh}
+                            </div>
+                          </button>
+                          {statusHref ? (
+                            <div className="border-t border-border/60 px-3 pb-2.5 pt-1">
+                              <a
+                                href={statusHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-brand hover:underline"
+                              >
+                                {t("poolDashboard")} ↗
+                              </a>
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -793,7 +852,19 @@ export function MinerApp() {
                       {locale === "en"
                         ? selectedPool.userFormat_en
                         : selectedPool.userFormat_zh}
-                      {selectedPool.homepage ? (
+                      {poolStatusHref ? (
+                        <>
+                          {" · "}
+                          <a
+                            href={poolStatusHref}
+                            className="font-medium text-brand hover:underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {t("viewPoolStatus")} ↗
+                          </a>
+                        </>
+                      ) : selectedPool.homepage ? (
                         <>
                           {" · "}
                           <a

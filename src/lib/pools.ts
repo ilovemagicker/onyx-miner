@@ -25,6 +25,13 @@ export type PoolInfo = {
   feeNote_zh: string;
   feeNote_en: string;
   homepage?: string;
+  /** Pool status / dashboard page (search or overview). */
+  statusUrl?: string;
+  /**
+   * Per-address status URL. `{address}` is replaced with the payout address
+   * (Stratum username with optional `.worker` suffix stripped).
+   */
+  statusUrlTemplate?: string;
   /** Stratum mining.subscribe user-agent (some pools whitelist NerdMiner*). */
   userAgent?: string;
   /** If set, UI shows optional merge address field (for DOGE merge mining). */
@@ -95,6 +102,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "0% · Solo · 現況地板難度=1（ESP32/NerdMiner 同）。官網 worker 要 Accepted≥1",
     feeNote_en: "0% · Solo · live floor difficulty=1 (same for ESP32/NerdMiner). Pool workers need Accepted≥1",
     homepage: "https://web.public-pool.io/",
+    statusUrl: "https://web.public-pool.io/",
+    statusUrlTemplate: "https://web.public-pool.io/#/app/{address}",
   },
   {
     id: "btc-public-pplns",
@@ -110,6 +119,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "0% PPLNS · 地板難度=1（與 Solo／ESP32 相同）",
     feeNote_en: "0% PPLNS · floor difficulty=1 (same as Solo / ESP32)",
     homepage: "https://web.public-pool.io/",
+    statusUrl: "https://web.public-pool.io/",
+    statusUrlTemplate: "https://web.public-pool.io/#/app/{address}",
   },
   {
     id: "btc-seth-solo",
@@ -125,6 +136,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "實測連線不穩（proxy 曾斷流）；優先用 NerdMiners.org／SoloMining.de",
     feeNote_en: "Probe unstable (proxy stream cancel); prefer NerdMiners.org / SoloMining.de",
     homepage: "https://pool.sethforprivacy.com/",
+    statusUrl: "https://pool.sethforprivacy.com/",
+    statusUrlTemplate: "https://pool.sethforprivacy.com/api/client/{address}",
   },
   {
     id: "btc-stompi-solo",
@@ -140,6 +153,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "實測 authorize 失敗；優先用 NerdMiners.org／SoloMining.de",
     feeNote_en: "Probe authorize failed; prefer NerdMiners.org / SoloMining.de",
     homepage: "http://web.stompi.de/",
+    statusUrl: "http://web.stompi.de/",
+    statusUrlTemplate: "http://web.stompi.de/#/app/{address}",
   },
   {
     id: "btc-nerdminers-org",
@@ -155,7 +170,9 @@ export const POOLS: PoolInfo[] = [
     password: "x",
     feeNote_zh: "推薦 · 難度≈0.001 · 需 NerdMiner UA（本站已自動帶）· 數十秒內可 Accepted",
     feeNote_en: "Recommended · diff≈0.001 · NerdMiner UA auto · Accepted in tens of seconds",
-    homepage: "https://nerdminers.org/",
+    homepage: "https://pool.nerdminers.org/",
+    statusUrl: "https://pool.nerdminers.org/",
+    statusUrlTemplate: "https://pool.nerdminers.org/users/{address}",
   },
   {
     id: "btc-solomining-de",
@@ -171,6 +188,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "實測接受 suggest 0.00015 · 與 NerdMiner DEFAULT_DIFFICULTY 一致",
     feeNote_en: "Probed honors suggest 0.00015 · matches NerdMiner DEFAULT_DIFFICULTY",
     homepage: "https://pool.solomining.de/",
+    statusUrl: "https://pool.solomining.de/",
+    statusUrlTemplate: "https://pool.solomining.de/#/app/{address}",
   },
   {
     id: "btc-ckpool-solo",
@@ -186,6 +205,8 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "約 2% · 起始難度偏高",
     feeNote_en: "~2% · higher start difficulty",
     homepage: "https://solo.ckpool.org/",
+    statusUrl: "https://solo.ckpool.org/",
+    statusUrlTemplate: "http://raw.stats.ckpool.org/users/{address}",
   },
   {
     id: "btc-atlas-solo",
@@ -201,6 +222,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "Solo · 起始難度偏高",
     feeNote_en: "Solo · higher start difficulty",
     homepage: "https://atlaspool.io/",
+    statusUrl: "https://atlaspool.io/",
   },
   // —— BCH ——
   {
@@ -217,6 +239,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "需 ViaBTC 帳號",
     feeNote_en: "ViaBTC account required",
     homepage: "https://www.viabtc.com/",
+    statusUrl: "https://www.viabtc.com/",
   },
   // —— LTC ——
   {
@@ -233,6 +256,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "Solo 合併 · 約 1% · 密碼可填 DOGE=你的DOGE地址",
     feeNote_en: "Solo merge · ~1% · password may be DOGE=yourDogeAddr",
     homepage: "https://litesolo.org/",
+    statusUrl: "https://litesolo.org/",
     mergeHint: "doge-in-password",
   },
   {
@@ -249,6 +273,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "Solo 合併 · 約 1%",
     feeNote_en: "Solo merge · ~1%",
     homepage: "https://litesolo.org/",
+    statusUrl: "https://litesolo.org/",
     mergeHint: "doge-in-password",
   },
   {
@@ -265,6 +290,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "LTC+DOGE Solo 合併 · vardiff",
     feeNote_en: "LTC+DOGE solo merge · vardiff",
     homepage: "https://doge.mysolopool.com/",
+    statusUrl: "https://doge.mysolopool.com/",
   },
   {
     id: "ltc-molepool",
@@ -280,6 +306,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "低算力埠 · 密碼可 doge=DOGE地址",
     feeNote_en: "Low-hashrate port · password doge=DOGE addr",
     homepage: "https://ltc.molepool.com/help",
+    statusUrl: "https://ltc.molepool.com/",
     mergeHint: "doge-in-password",
   },
   {
@@ -296,6 +323,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "LTC+DOGE Solo 合併",
     feeNote_en: "LTC+DOGE solo merge",
     homepage: "https://nexuspool.io/ltc",
+    statusUrl: "https://nexuspool.io/ltc",
   },
   // —— DOGE (merge via LTC parent) ——
   {
@@ -312,6 +340,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "合併挖礦 · 填 DOGE 獎勵地址＋下方 LTC 合併地址",
     feeNote_en: "Merge-mine · fill DOGE payout + LTC merge address below",
     homepage: "https://litesolo.org/",
+    statusUrl: "https://litesolo.org/",
     mergeHint: "ltc-for-doge",
   },
   {
@@ -328,6 +357,7 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "需同時提供 LTC 與 DOGE 地址",
     feeNote_en: "Needs both LTC and DOGE addresses",
     homepage: "https://doge.mysolopool.com/",
+    statusUrl: "https://doge.mysolopool.com/",
     mergeHint: "ltc-for-doge",
   },
   {
@@ -344,10 +374,35 @@ export const POOLS: PoolInfo[] = [
     feeNote_zh: "低算力埠 · 合併",
     feeNote_en: "Low-hashrate · merge",
     homepage: "https://ltc.molepool.com/help",
+    statusUrl: "https://ltc.molepool.com/",
     mergeHint: "ltc-for-doge",
   },
 ];
 
 export function poolsForCoin(coin: CoinId): PoolInfo[] {
   return POOLS.filter((p) => p.coin === coin);
+}
+
+/** Payout address only (strip optional `.worker` suffix). */
+export function payoutAddressOnly(address: string): string {
+  const raw = address.trim();
+  if (!raw) return "";
+  const dot = raw.indexOf(".");
+  return dot > 0 ? raw.slice(0, dot) : raw;
+}
+
+/**
+ * Build a pool status / dashboard URL.
+ * Prefers a per-address deep link when the address is filled; otherwise the
+ * pool search/overview page (or homepage).
+ */
+export function resolvePoolStatusUrl(
+  pool: PoolInfo,
+  address?: string
+): string | null {
+  const payout = address ? payoutAddressOnly(address) : "";
+  if (pool.statusUrlTemplate && payout) {
+    return pool.statusUrlTemplate.replaceAll("{address}", payout);
+  }
+  return pool.statusUrl ?? pool.homepage ?? null;
 }

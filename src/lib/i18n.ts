@@ -123,6 +123,10 @@ const dict = {
     waitingJobHint: "已授權，尚無工作 — 礦池可能稍後才派 mining.notify；請確認地址格式（Public Pool：BTC 地址，可加 .worker）。",
     waitingJobToast: "已連上礦池，等待派工…",
     poolAuthorizedToast: "礦池已授權",
+    viewPoolStatus: "在礦池查看狀態",
+    viewPoolStatusHint: "新分頁開啟礦池儀表板；有地址時盡量直達該地址狀態頁。",
+    viewPoolStatusPaste: "開啟後請在礦池頁貼上你的地址搜尋。",
+    poolDashboard: "礦池狀態",
   },
   en: {
     appName: "Online Solo Miner",
@@ -242,6 +246,10 @@ const dict = {
     waitingJobHint: "Authorized, but no job yet — the pool may send mining.notify shortly. Check username format (Public Pool: BTC address, optional .worker).",
     waitingJobToast: "Connected — waiting for pool work…",
     poolAuthorizedToast: "Pool authorized",
+    viewPoolStatus: "View status on pool",
+    viewPoolStatusHint: "Opens the pool dashboard in a new tab; deep-links to your address when filled.",
+    viewPoolStatusPaste: "On the pool page, paste your address to search.",
+    poolDashboard: "Pool status",
   },
 } as const;
 
