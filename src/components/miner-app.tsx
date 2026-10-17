@@ -23,6 +23,7 @@ import {
   PoolMineController,
   type PoolMineStats,
 } from "@/lib/pool-mine-controller";
+import { WalletConnectBar } from "@/components/wallet-connect";
 
 const ADDR_KEY = "onyx_miner_address";
 const MODE_KEY = "onyx_miner_mode";
@@ -449,6 +450,15 @@ export function MinerApp() {
             autoComplete="off"
             disabled={mining}
             className="mono w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-brand focus:outline-none disabled:opacity-60"
+          />
+          <WalletConnectBar
+            coin={coin}
+            mining={mining}
+            address={address}
+            onAddress={(addr) => {
+              setAddress(addr);
+              setAddrTouched(true);
+            }}
           />
           <p className="mt-1.5 text-xs text-muted">{t("addressHint")}</p>
           {addrTouched && address.trim() && addrCheck && (
