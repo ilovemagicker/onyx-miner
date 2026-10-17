@@ -50,6 +50,7 @@ export class PoolMineController {
   private rateTimer: ReturnType<typeof setInterval> | null = null;
   private pendingDone = 0;
   private jobEpoch = 0;
+  private algo: import("./pools").AlgoId = "sha256d";
 
   subscribe(fn: Listener) {
     this.listeners.add(fn);
@@ -86,6 +87,7 @@ export class PoolMineController {
   async start(pool: PoolInfo, user: string, password?: string) {
     if (this.running) return;
     this.user = user.trim();
+    this.algo = pool.algo;
     this.running = true;
     this.totalHashes = 0;
     this.bestHashHex = "f".repeat(64);
@@ -151,7 +153,11 @@ export class PoolMineController {
       return;
     }
 
-    this.spawnWorkers(suggestedWorkers());
+    const nWorkers =
+      this.algo === "scrypt"
+        ? Math.min(4, suggestedWorkers())
+        : suggestedWorkers();
+    this.spawnWorkers(nWorkers);
     this.rateTimer = setInterval(() => {
       const now = performance.now();
       const dt = (now - this.windowStart) / 1000;
@@ -213,9 +219,11 @@ export class PoolMineController {
     for (let i = 0; i < n; i++) {
       const nonceStart = i * chunk;
       const nonceEnd = i === n - 1 ? NONCE_SPACE : (i + 1) * chunk;
+      const batch = this.algo === "scrypt" ? 32 : BATCH;
       const msg: StratumWorkerIn = {
         type: "mine",
         workerId: i,
+        algo: this.algo,
         jobId: job.jobId,
         prevhash: job.prevhash,
         coinb1: job.coinb1,
@@ -229,7 +237,7 @@ export class PoolMineController {
         difficulty: this.difficulty,
         nonceStart,
         nonceEnd,
-        batchSize: BATCH,
+        batchSize: batch,
       };
       // tag epoch on worker via closure — ignore stale dones
       (this.workers[i] as Worker & { __epoch?: number }).__epoch = epoch;

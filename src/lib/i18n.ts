@@ -87,6 +87,11 @@ const dict = {
     disconnectConfirm: "要清除已填入的獎勵地址嗎？",
     walletHint: "僅讀取支付地址填入上方欄位，不會要求簽名或私鑰。可手動修改。",
     walletBchNote: "BCH 請手動貼上地址（或 ViaBTC 帳號）；錢包連接目前支援 BTC。",
+    mergeLtcLabel: "LTC 合併挖礦地址（必填）",
+    mergeLtcHint: "DOGE 多為 LTC AuxPoW 合併；使用者名稱／密碼會依礦池規則自動組合。",
+    mergeLtcPlaceholder: "ltc1… 或 L…／M…",
+    needMergeLtc: "請填寫 LTC 合併地址",
+    scryptSlowWarn: "Scrypt（LTC／DOGE）在瀏覽器通常只有約百 H/s，遠慢於 SHA256d 的 KH/s，僅供學習。",
   },
   en: {
     appName: "Miner",
@@ -165,6 +170,11 @@ const dict = {
     disconnectConfirm: "Clear the filled payout address?",
     walletHint: "We only read your payment address into the field above — no signing, no private keys. You can edit it manually.",
     walletBchNote: "For BCH, paste an address (or ViaBTC login) manually; wallet connect supports BTC for now.",
+    mergeLtcLabel: "LTC merge-mine address (required)",
+    mergeLtcHint: "DOGE is usually AuxPoW-merged with LTC; username/password are built per pool rules.",
+    mergeLtcPlaceholder: "ltc1… or L…/M…",
+    needMergeLtc: "Enter an LTC merge address",
+    scryptSlowWarn: "Browser Scrypt (LTC/DOGE) is typically ~100s H/s — much slower than SHA256d KH/s. Learning only.",
   },
 } as const;
 

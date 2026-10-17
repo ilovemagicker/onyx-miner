@@ -22,6 +22,13 @@ const ALLOW = new Map([
   // BCH (ViaBTC)
   ["bch.viabtc.io", new Set([3333, 443])],
   ["bch.viabtc.com", new Set([3333, 443])],
+  // LTC / DOGE scrypt
+  ["eu.litesolo.org", new Set([3333])],
+  ["us.litesolo.org", new Set([3333])],
+  ["scrypt.mysolopool.com", new Set([3341, 3342])],
+  ["eu.molepool.com", new Set([2601, 2602, 2603])],
+  ["lite.nexuspool.io", new Set([3354])],
+  ["ltc.viabtc.io", new Set([3333, 443])],
 ]);
 
 function allowed(host, port) {

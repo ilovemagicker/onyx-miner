@@ -1,10 +1,11 @@
 export type CoinId = "BTC" | "BCH" | "LTC" | "DOGE" | "XMR" | "KAS";
 export type CoinStatus = "supported" | "coming" | "unsupported";
 export type PoolKind = "solo" | "pool";
+export type AlgoId = "sha256d" | "scrypt";
 
 export type CoinInfo = {
   id: CoinId;
-  algo: string;
+  algo: AlgoId | string;
   status: CoinStatus;
   note_zh: string;
   note_en: string;
@@ -15,6 +16,7 @@ export type PoolInfo = {
   coin: CoinId;
   name: string;
   kind: PoolKind;
+  algo: AlgoId;
   host: string;
   port: number;
   userFormat_zh: string;
@@ -23,6 +25,8 @@ export type PoolInfo = {
   feeNote_zh: string;
   feeNote_en: string;
   homepage?: string;
+  /** If set, UI shows optional merge address field (for DOGE merge mining). */
+  mergeHint?: "ltc-for-doge" | "doge-in-password";
 };
 
 export const PROXY_WS_URL =
@@ -31,31 +35,31 @@ export const PROXY_WS_URL =
 export const COINS: CoinInfo[] = [
   {
     id: "BTC",
-    algo: "SHA256d",
+    algo: "sha256d",
     status: "supported",
     note_zh: "真實 Stratum 礦池／Solo",
     note_en: "Real Stratum pool / solo",
   },
   {
     id: "BCH",
-    algo: "SHA256d",
+    algo: "sha256d",
     status: "supported",
     note_zh: "真實 Stratum（ViaBTC）",
     note_en: "Real Stratum (ViaBTC)",
   },
   {
     id: "LTC",
-    algo: "Scrypt",
-    status: "coming",
-    note_zh: "Scrypt worker 尚未實作",
-    note_en: "Scrypt worker not implemented yet",
+    algo: "scrypt",
+    status: "supported",
+    note_zh: "Scrypt · 瀏覽器約百 H/s 級，遠慢於 SHA256d",
+    note_en: "Scrypt · browser ~100s H/s, much slower than SHA256d",
   },
   {
     id: "DOGE",
-    algo: "Scrypt",
-    status: "coming",
-    note_zh: "Scrypt worker 尚未實作",
-    note_en: "Scrypt worker not implemented yet",
+    algo: "scrypt",
+    status: "supported",
+    note_zh: "多為 LTC 合併挖礦 · Scrypt · 需 LTC 地址＋DOGE 獎勵地址",
+    note_en: "Usually LTC merge-mine · Scrypt · need LTC addr + DOGE payout",
   },
   {
     id: "XMR",
@@ -74,18 +78,20 @@ export const COINS: CoinInfo[] = [
 ];
 
 export const POOLS: PoolInfo[] = [
+  // —— BTC ——
   {
     id: "btc-public-solo",
     coin: "BTC",
     name: "Public Pool (Solo)",
     kind: "solo",
+    algo: "sha256d",
     host: "public-pool.io",
     port: 3333,
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "0% · 找到區塊歸你 · 建議難度可談",
-    feeNote_en: "0% · block pays your address · vardiff/suggest",
+    feeNote_zh: "0% · Solo · 建議難度可談",
+    feeNote_en: "0% · Solo · vardiff/suggest",
     homepage: "https://web.public-pool.io/",
   },
   {
@@ -93,12 +99,13 @@ export const POOLS: PoolInfo[] = [
     coin: "BTC",
     name: "Public Pool (PPLNS)",
     kind: "pool",
+    algo: "sha256d",
     host: "public-pool.io",
     port: 13333,
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "0% PPLNS 分潤",
+    feeNote_zh: "0% PPLNS",
     feeNote_en: "0% PPLNS",
     homepage: "https://web.public-pool.io/",
   },
@@ -107,13 +114,14 @@ export const POOLS: PoolInfo[] = [
     coin: "BTC",
     name: "CKPool Solo",
     kind: "solo",
+    algo: "sha256d",
     host: "stratum.ckpool.org",
     port: 3333,
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "約 2% · 經典 Solo 服務 · 起始難度偏高",
-    feeNote_en: "~2% · classic solo · higher start difficulty",
+    feeNote_zh: "約 2% · 起始難度偏高",
+    feeNote_en: "~2% · higher start difficulty",
     homepage: "https://solo.ckpool.org/",
   },
   {
@@ -121,6 +129,7 @@ export const POOLS: PoolInfo[] = [
     coin: "BTC",
     name: "AtlasPool Solo",
     kind: "solo",
+    algo: "sha256d",
     host: "solo.atlaspool.io",
     port: 3333,
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
@@ -130,19 +139,149 @@ export const POOLS: PoolInfo[] = [
     feeNote_en: "Solo · higher start difficulty",
     homepage: "https://atlaspool.io/",
   },
+  // —— BCH ——
   {
     id: "bch-viabtc",
     coin: "BCH",
     name: "ViaBTC BCH",
     kind: "pool",
+    algo: "sha256d",
     host: "bch.viabtc.io",
     port: 3333,
     userFormat_zh: "ViaBTC 子帳戶名.worker（需先註冊）",
     userFormat_en: "ViaBTC sub-account.worker (register first)",
     password: "x",
-    feeNote_zh: "需 ViaBTC 帳號；瀏覽器算力幾乎無收益",
-    feeNote_en: "ViaBTC account required; browser hashrate earns ~nothing",
+    feeNote_zh: "需 ViaBTC 帳號",
+    feeNote_en: "ViaBTC account required",
     homepage: "https://www.viabtc.com/",
+  },
+  // —— LTC ——
+  {
+    id: "ltc-litesolo-eu",
+    coin: "LTC",
+    name: "LiteSolo EU",
+    kind: "solo",
+    algo: "scrypt",
+    host: "eu.litesolo.org",
+    port: 3333,
+    userFormat_zh: "LTC 地址（L／M／ltc1…，可加 .worker）",
+    userFormat_en: "LTC address (L/M/ltc1…, optional .worker)",
+    password: "x",
+    feeNote_zh: "Solo 合併 · 約 1% · 密碼可填 DOGE=你的DOGE地址",
+    feeNote_en: "Solo merge · ~1% · password may be DOGE=yourDogeAddr",
+    homepage: "https://litesolo.org/",
+    mergeHint: "doge-in-password",
+  },
+  {
+    id: "ltc-litesolo-us",
+    coin: "LTC",
+    name: "LiteSolo US",
+    kind: "solo",
+    algo: "scrypt",
+    host: "us.litesolo.org",
+    port: 3333,
+    userFormat_zh: "LTC 地址（L／M／ltc1…）",
+    userFormat_en: "LTC address (L/M/ltc1…)",
+    password: "x",
+    feeNote_zh: "Solo 合併 · 約 1%",
+    feeNote_en: "Solo merge · ~1%",
+    homepage: "https://litesolo.org/",
+    mergeHint: "doge-in-password",
+  },
+  {
+    id: "ltc-mysolo",
+    coin: "LTC",
+    name: "MySoloPool Scrypt",
+    kind: "solo",
+    algo: "scrypt",
+    host: "scrypt.mysolopool.com",
+    port: 3341,
+    userFormat_zh: "LTC地址 或 LTC.DOGE地址",
+    userFormat_en: "LTC addr or LTC.DOGE addr",
+    password: "x",
+    feeNote_zh: "LTC+DOGE Solo 合併 · vardiff",
+    feeNote_en: "LTC+DOGE solo merge · vardiff",
+    homepage: "https://doge.mysolopool.com/",
+  },
+  {
+    id: "ltc-molepool",
+    coin: "LTC",
+    name: "Molepool EU (low)",
+    kind: "solo",
+    algo: "scrypt",
+    host: "eu.molepool.com",
+    port: 2601,
+    userFormat_zh: "LTC 地址（可加 .worker）",
+    userFormat_en: "LTC address (optional .worker)",
+    password: "x",
+    feeNote_zh: "低算力埠 · 密碼可 doge=DOGE地址",
+    feeNote_en: "Low-hashrate port · password doge=DOGE addr",
+    homepage: "https://ltc.molepool.com/help",
+    mergeHint: "doge-in-password",
+  },
+  {
+    id: "ltc-nexus",
+    coin: "LTC",
+    name: "NexusPool Lite",
+    kind: "solo",
+    algo: "scrypt",
+    host: "lite.nexuspool.io",
+    port: 3354,
+    userFormat_zh: "LTC.DOGE.worker 或 LTC＋密碼 doge=",
+    userFormat_en: "LTC.DOGE.worker or LTC + password doge=",
+    password: "x",
+    feeNote_zh: "LTC+DOGE Solo 合併",
+    feeNote_en: "LTC+DOGE solo merge",
+    homepage: "https://nexuspool.io/ltc",
+  },
+  // —— DOGE (merge via LTC parent) ——
+  {
+    id: "doge-litesolo-eu",
+    coin: "DOGE",
+    name: "LiteSolo EU (merge)",
+    kind: "solo",
+    algo: "scrypt",
+    host: "eu.litesolo.org",
+    port: 3333,
+    userFormat_zh: "使用者名稱＝LTC 地址；密碼＝DOGE=你的DOGE地址",
+    userFormat_en: "Username=LTC address; password=DOGE=yourDogeAddr",
+    password: "DOGE=",
+    feeNote_zh: "合併挖礦 · 填 DOGE 獎勵地址＋下方 LTC 合併地址",
+    feeNote_en: "Merge-mine · fill DOGE payout + LTC merge address below",
+    homepage: "https://litesolo.org/",
+    mergeHint: "ltc-for-doge",
+  },
+  {
+    id: "doge-mysolo",
+    coin: "DOGE",
+    name: "MySoloPool (merge)",
+    kind: "solo",
+    algo: "scrypt",
+    host: "scrypt.mysolopool.com",
+    port: 3341,
+    userFormat_zh: "自動組成 LTC.DOGE 作為使用者名稱",
+    userFormat_en: "Builds LTC.DOGE as username automatically",
+    password: "x",
+    feeNote_zh: "需同時提供 LTC 與 DOGE 地址",
+    feeNote_en: "Needs both LTC and DOGE addresses",
+    homepage: "https://doge.mysolopool.com/",
+    mergeHint: "ltc-for-doge",
+  },
+  {
+    id: "doge-molepool",
+    coin: "DOGE",
+    name: "Molepool EU (merge)",
+    kind: "solo",
+    algo: "scrypt",
+    host: "eu.molepool.com",
+    port: 2601,
+    userFormat_zh: "使用者＝LTC；密碼＝doge=DOGE地址",
+    userFormat_en: "User=LTC; password=doge=DOGE addr",
+    password: "doge=",
+    feeNote_zh: "低算力埠 · 合併",
+    feeNote_en: "Low-hashrate · merge",
+    homepage: "https://ltc.molepool.com/help",
+    mergeHint: "ltc-for-doge",
   },
 ];
 

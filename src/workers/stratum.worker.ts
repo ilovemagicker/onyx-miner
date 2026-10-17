@@ -9,12 +9,15 @@ import {
   targetFromDifficulty,
   bytesToHex,
 } from "../lib/stratum-math";
+import { scryptHeader } from "../lib/scrypt-pow";
 import { compareHash } from "../lib/bitcoin";
+import type { AlgoId } from "../lib/pools";
 
 export type StratumWorkerIn =
   | {
       type: "mine";
       workerId: number;
+      algo: AlgoId;
       jobId: string;
       prevhash: string;
       coinb1: string;
@@ -52,6 +55,11 @@ export type StratumWorkerOut =
 
 let stopFlag = false;
 
+function powHash(algo: AlgoId, header: Uint8Array): Uint8Array {
+  if (algo === "scrypt") return scryptHeader(header);
+  return sha256d(header);
+}
+
 self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
   const msg = ev.data;
   if (msg.type === "stop") {
@@ -73,6 +81,7 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
   let bestDisp = new Uint8Array(32).fill(0xff);
   let hashes = 0;
   let lastReport = 0;
+  const batch = Math.max(8, msg.batchSize);
 
   for (let nonce = msg.nonceStart; nonce < msg.nonceEnd && !stopFlag; nonce++) {
     const header = assembleStratumHeader({
@@ -83,7 +92,7 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
       nbitsHex: msg.nbits,
       nonce,
     });
-    const digest = sha256d(header);
+    const digest = powHash(msg.algo, header);
     const disp = reverseBytes(digest);
     hashes++;
 
@@ -103,7 +112,7 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
       } satisfies StratumWorkerOut);
     }
 
-    if (hashes - lastReport >= msg.batchSize) {
+    if (hashes - lastReport >= batch) {
       const delta = hashes - lastReport;
       lastReport = hashes;
       (self as DedicatedWorkerGlobalScope).postMessage({

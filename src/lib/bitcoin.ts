@@ -237,3 +237,23 @@ export function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return "—";
   return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
+
+
+export function validateLtcAddress(addr: string): { ok: boolean; error?: string } {
+  const a = addr.trim();
+  if (!a) return { ok: false, error: "empty" };
+  // strip optional .worker
+  const base = a.split(".")[0];
+  if (/^[LM][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(base)) return { ok: true };
+  if (/^ltc1[a-z0-9]{25,90}$/i.test(base)) return { ok: true };
+  return { ok: false, error: "format" };
+}
+
+export function validateDogeAddress(addr: string): { ok: boolean; error?: string } {
+  const a = addr.trim();
+  if (!a) return { ok: false, error: "empty" };
+  const base = a.split(".")[0];
+  // Legacy D… / A… / 9…
+  if (/^[DA9][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(base)) return { ok: true };
+  return { ok: false, error: "format" };
+}

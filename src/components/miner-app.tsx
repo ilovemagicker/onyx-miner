@@ -9,8 +9,11 @@ import {
   formatHashrate,
   formatNumber,
   validateBtcAddress,
+  validateLtcAddress,
+  validateDogeAddress,
   type NetworkSnapshot,
 } from "@/lib/bitcoin";
+import { buildStratumCredentials } from "@/lib/stratum-credentials";
 import { MineController, suggestedWorkers } from "@/lib/mine-controller";
 import type { MineStats } from "@/lib/mine-controller";
 import {
@@ -62,6 +65,7 @@ export function MinerApp() {
   const [poolId, setPoolId] = useState<string>("btc-public-solo");
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("x");
+  const [mergeLtc, setMergeLtc] = useState("");
   const [addrTouched, setAddrTouched] = useState(false);
   const [network, setNetwork] = useState<NetworkSnapshot | null>(null);
   const [netError, setNetError] = useState<string | null>(null);
@@ -100,13 +104,20 @@ export function MinerApp() {
   const addrCheck = useMemo(() => {
     if (!address.trim()) return null;
     if (coin === "BCH" && selectedPool?.id === "bch-viabtc") {
-      // ViaBTC login — loose
       return address.trim().length >= 3
         ? { ok: true as const }
         : { ok: false as const };
     }
+    if (coin === "LTC") return validateLtcAddress(address);
+    if (coin === "DOGE") return validateDogeAddress(address);
     return validateBtcAddress(address);
   }, [address, coin, selectedPool?.id]);
+
+  const mergeLtcCheck = useMemo(() => {
+    if (coin !== "DOGE" || selectedPool?.mergeHint !== "ltc-for-doge") return null;
+    if (!mergeLtc.trim()) return null;
+    return validateLtcAddress(mergeLtc);
+  }, [coin, selectedPool?.mergeHint, mergeLtc]);
 
   useEffect(() => {
     try {
@@ -139,6 +150,16 @@ export function MinerApp() {
       setPoolId(pools[0].id);
     }
   }, [pools, poolId]);
+
+  useEffect(() => {
+    if (!selectedPool || mining) return;
+    if (selectedPool.password === "DOGE=" || selectedPool.password === "doge=") {
+      setPassword("x");
+    } else if (selectedPool.password && selectedPool.password !== password) {
+      // reset to pool default when switching pools
+      setPassword(selectedPool.password || "x");
+    }
+  }, [selectedPool?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadNetwork = useCallback(async () => {
     setNetLoading(true);
@@ -197,9 +218,21 @@ export function MinerApp() {
     if (coinInfo.status !== "supported") return;
     if (!address.trim()) return;
     if (addrCheck && !addrCheck.ok) return;
+    if (
+      selectedPool.mergeHint === "ltc-for-doge" &&
+      (!mergeLtc.trim() || (mergeLtcCheck && !mergeLtcCheck.ok))
+    ) {
+      return;
+    }
+    const creds = buildStratumCredentials({
+      pool: selectedPool,
+      address,
+      password: password || "x",
+      mergeLtc,
+    });
+    if (creds.error || !creds.user) return;
     setMining(true);
-    await poolRef.current.start(selectedPool, address, password || "x");
-    // If connect failed, controller sets status error and running=false
+    await poolRef.current.start(selectedPool, creds.user, creds.password);
     if (!poolRef.current.isRunning()) setMining(false);
   };
 
@@ -228,6 +261,7 @@ export function MinerApp() {
 
   const highDiff =
     mode === "pool" && poolStats.difficulty >= 100 && mining;
+  const scryptCoin = coin === "LTC" || coin === "DOGE";
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -336,6 +370,11 @@ export function MinerApp() {
         {highDiff && (
           <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
             {t("highDiffWarn")}
+          </div>
+        )}
+        {mode === "pool" && scryptCoin && (
+          <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning">
+            {t("scryptSlowWarn")}
           </div>
         )}
 
@@ -471,6 +510,34 @@ export function MinerApp() {
             </p>
           )}
 
+          {mode === "pool" &&
+            selectedPool?.mergeHint === "ltc-for-doge" && (
+              <div className="mt-3">
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+                  {t("mergeLtcLabel")}
+                </label>
+                <input
+                  type="text"
+                  value={mergeLtc}
+                  onChange={(e) => setMergeLtc(e.target.value)}
+                  placeholder={t("mergeLtcPlaceholder")}
+                  spellCheck={false}
+                  disabled={mining}
+                  className="mono w-full rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-brand focus:outline-none disabled:opacity-60"
+                />
+                <p className="mt-1.5 text-xs text-muted">{t("mergeLtcHint")}</p>
+                {mergeLtc.trim() && mergeLtcCheck && (
+                  <p
+                    className={`mt-1 text-xs ${
+                      mergeLtcCheck.ok ? "text-success" : "text-danger"
+                    }`}
+                  >
+                    {mergeLtcCheck.ok ? t("addressOk") : t("addressInvalid")}
+                  </p>
+                )}
+              </div>
+            )}
+
           {mode === "pool" && (
             <div className="mt-3">
               <label className="mb-1.5 block text-sm font-medium text-zinc-300">
@@ -499,7 +566,10 @@ export function MinerApp() {
                     : coinInfo.status !== "supported" ||
                       !selectedPool ||
                       !address.trim() ||
-                      (!!addrCheck && !addrCheck.ok)
+                      (!!addrCheck && !addrCheck.ok) ||
+                      (selectedPool.mergeHint === "ltc-for-doge" &&
+                        (!mergeLtc.trim() ||
+                          (!!mergeLtcCheck && !mergeLtcCheck.ok)))
                 }
                 className="rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
               >

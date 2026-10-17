@@ -35,3 +35,11 @@ Vercel serverless cannot hold long-lived TCP to Stratum. Proxy is Cloudflare Wor
 
 ## i18n
 Cookie `miner_locale`; default zh-Hant; EN | 繁中
+
+
+## LTC / DOGE (Scrypt) — 2026-10-17
+- Algo: `@noble/hashes` scrypt N=1024,r=1,p=1 (header as key+salt)
+- Browser ~100–400 H/s (honest: much slower than SHA256d KH/s)
+- Pools: LiteSolo EU/US, MySoloPool, Molepool EU, NexusPool
+- DOGE uses LTC merge (AuxPoW); UI asks for LTC merge address
+- Proxy allowlist updated on stratum.onyxlab.dev
