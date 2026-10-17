@@ -25,6 +25,8 @@ export type PoolInfo = {
   feeNote_zh: string;
   feeNote_en: string;
   homepage?: string;
+  /** Stratum mining.subscribe user-agent (some pools whitelist NerdMiner*). */
+  userAgent?: string;
   /** If set, UI shows optional merge address field (for DOGE merge mining). */
   mergeHint?: "ltc-for-doge" | "doge-in-password";
 };
@@ -146,12 +148,13 @@ export const POOLS: PoolInfo[] = [
     kind: "solo",
     algo: "sha256d",
     host: "pool.nerdminers.org",
+    userAgent: "NerdMinerV2/onyx-1.3",
     port: 3333,
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "實測難度≈0.001 · ESP32／瀏覽器可在數十秒內 Accepted（推薦）",
-    feeNote_en: "Probed difficulty≈0.001 · ESP32/browser can Accepted in tens of seconds (recommended)",
+    feeNote_zh: "推薦 · 難度≈0.001 · 需 NerdMiner UA（本站已自動帶）· 數十秒內可 Accepted",
+    feeNote_en: "Recommended · diff≈0.001 · NerdMiner UA auto · Accepted in tens of seconds",
     homepage: "https://nerdminers.org/",
   },
   {

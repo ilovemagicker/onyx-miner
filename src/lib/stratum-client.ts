@@ -56,6 +56,7 @@ export class StratumClient {
 
   async connect(pool: PoolInfo, user: string, password: string, suggestDiff = 0.00015) {
     await this.close();
+    const userAgent = pool.userAgent || "onyx-miner/1.3";
     return new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(PROXY_WS_URL);
       this.ws = ws;
@@ -101,7 +102,7 @@ export class StratumClient {
             this.send({
               id: 1,
               method: "mining.subscribe",
-              params: ["onyx-miner/1.3"],
+              params: [userAgent],
             });
           } else if (msg.state === "tcp_closed") {
             this.connected = false;
@@ -137,11 +138,24 @@ export class StratumClient {
           return;
         }
 
-        if (msg.id === 1 && msg.result) {
-          // subscribe result: [ [subs], extranonce1, extranonce2_size ]
+        if (msg.id === 1) {
+          // Valid subscribe: [ [subs], extranonce1, extranonce2_size ]
+          // Some pools (e.g. nerdminers.org) reject UA with a *string* result
+          // and error:null — must not treat that as success.
+          if (!Array.isArray(msg.result)) {
+            fail(
+              `subscribe_rejected: ${
+                typeof msg.result === "string"
+                  ? msg.result
+                  : JSON.stringify(msg.error || msg.result)
+              }`
+            );
+            return;
+          }
           const result = msg.result as unknown[];
           this.extranonce1 = String(result[1] || "");
-          this.extranonce2Size = Number(result[2] || 4);
+          const en2 = Number(result[2]);
+          this.extranonce2Size = Number.isFinite(en2) && en2 > 0 ? en2 : 4;
           this.suggestDiff = suggestDiff;
           // NerdMiner order: authorize first, then suggest_difficulty
           this.send({

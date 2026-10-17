@@ -132,7 +132,7 @@ export function MinerApp() {
   const { t, locale } = useI18n();
   const [mode, setMode] = useState<Mode>("pool");
   const [coin, setCoin] = useState<CoinId>("BTC");
-  const [poolId, setPoolId] = useState<string>("btc-public-solo");
+  const [poolId, setPoolId] = useState<string>("btc-nerdminers-org");
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("x");
   const [mergeLtc, setMergeLtc] = useState("");
@@ -589,7 +589,7 @@ export function MinerApp() {
         <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("highDiffWarn")}
           <div className="mt-1 text-xs opacity-80">
-            {t("buildStamp")}: esp-worker-r2
+            {t("buildStamp")}: nerd-ua-r3
             {stratumUserShown ? ` · ${t("stratumUser")}: ${stratumUserShown}` : ""}
           </div>
         </div>

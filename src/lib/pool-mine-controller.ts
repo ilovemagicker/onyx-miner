@@ -136,6 +136,11 @@ export class PoolMineController {
         ) {
           if (this.status === "connecting" || s === "closed" || s === "tcp_closed") {
             this.status = s === "tcp_connected" ? "connecting" : s;
+            if ((s === "closed" || s === "tcp_closed") && this.jobs > 0) {
+              this.lastError =
+                this.lastError ||
+                "pool_tcp_closed: 礦池斷線（可能拒 UA／協定）。請改 NerdMiners.org 或 SoloMining.de 並硬重新整理。";
+            }
           }
         } else if (s === "authorized" && this.jobs === 0) {
           this.status = "authorized";
