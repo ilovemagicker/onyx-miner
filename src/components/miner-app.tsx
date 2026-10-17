@@ -41,22 +41,28 @@ function mapPoolStatus(
   mining: boolean,
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
 ): { label: string; lamp: string } {
-  if (mining && (status === "mining" || status === "authorized")) {
-    return { label: t("statusMining"), lamp: "mining" };
-  }
   switch (status) {
     case "idle":
       return { label: t("statusIdle"), lamp: "idle" };
     case "connecting":
+    case "tcp_connected":
       return { label: t("statusConnecting"), lamp: "connecting" };
     case "authorized":
       return { label: t("statusAuthorized"), lamp: "authorized" };
+    case "waiting_job":
+      return { label: t("statusWaitingJob"), lamp: "authorized" };
     case "mining":
       return { label: t("statusMining"), lamp: "mining" };
     case "auth_failed":
       return { label: t("statusAuthFailed"), lamp: "error" };
     case "error":
       return { label: t("statusError"), lamp: "error" };
+    case "closed":
+    case "tcp_closed":
+      return {
+        label: mining ? t("statusError") : t("statusIdle"),
+        lamp: mining ? "error" : "idle",
+      };
     default:
       return {
         label: t("statusUnknown", { raw: status }),
@@ -303,10 +309,17 @@ export function MinerApp() {
   useEffect(() => {
     if (mode !== "pool") return;
     if (
-      prevStatus.current === "connecting" &&
+      (prevStatus.current === "connecting" ||
+        prevStatus.current === "tcp_connected") &&
       poolStats.status === "authorized"
     ) {
       showToast(t("poolAuthorizedToast"));
+    }
+    if (
+      prevStatus.current !== "waiting_job" &&
+      poolStats.status === "waiting_job"
+    ) {
+      showToast(t("waitingJobToast"));
     }
     prevStatus.current = poolStats.status;
   }, [poolStats.status, mode, showToast, t]);
@@ -357,7 +370,8 @@ export function MinerApp() {
   const liveWorkers =
     mode === "demo"
       ? demoStats.workerCount || workerHint
-      : poolStats.workerCount || workerHint;
+      : // Pool mode: show real worker count (do not mask 0 with the hint)
+        poolStats.workerCount;
 
   const eta = useMemo(() => {
     if (!network || liveHashrate <= 0 || mode !== "demo") return null;
@@ -517,6 +531,20 @@ export function MinerApp() {
               {poolStats.lastError}
             </div>
           )}
+          {mining &&
+            (poolStats.status === "waiting_job" ||
+              (poolStats.status === "authorized" && poolStats.jobs === 0)) && (
+              <div className="sm:col-span-3 text-xs text-amber-400">
+                {t("waitingJobHint")}
+              </div>
+            )}
+          {mining &&
+            poolStats.workerCount === 0 &&
+            poolStats.status === "mining" && (
+              <div className="sm:col-span-3 text-xs text-danger">
+                Workers = 0
+              </div>
+            )}
         </div>
       )}
 

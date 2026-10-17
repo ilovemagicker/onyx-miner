@@ -25,6 +25,8 @@ type Listener = (s: PoolMineStats) => void;
 
 const NONCE_SPACE = 0x100000000;
 const BATCH = 2500;
+/** If authorized but no mining.notify yet, surface a waiting hint. */
+const JOB_WAIT_MS = 5000;
 
 export class PoolMineController {
   private client = new StratumClient();
@@ -48,6 +50,7 @@ export class PoolMineController {
   private hashrate = 0;
   private listeners = new Set<Listener>();
   private rateTimer: ReturnType<typeof setInterval> | null = null;
+  private jobWaitTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingDone = 0;
   private jobEpoch = 0;
   private algo: import("./pools").AlgoId = "sha256d";
@@ -89,6 +92,7 @@ export class PoolMineController {
     this.user = user.trim();
     this.algo = pool.algo;
     this.running = true;
+    this.job = null;
     this.totalHashes = 0;
     this.bestHashHex = "f".repeat(64);
     this.accepted = 0;
@@ -104,30 +108,69 @@ export class PoolMineController {
     this.status = "connecting";
     this.emit();
 
+    // Spawn workers BEFORE connect so an early mining.notify can dispatch.
+    const nWorkers =
+      this.algo === "scrypt"
+        ? Math.min(4, suggestedWorkers())
+        : suggestedWorkers();
+    this.spawnWorkers(nWorkers);
+    this.rateTimer = setInterval(() => {
+      const now = performance.now();
+      const dt = (now - this.windowStart) / 1000;
+      if (dt > 0) this.hashrate = this.windowHashes / dt;
+      this.windowHashes = 0;
+      this.windowStart = now;
+      this.emit();
+    }, 1000);
+    this.emit();
+
     this.client.setHandlers({
       onStatus: (s) => {
-        this.status = s;
+        // Don't clobber mining / waiting_job with intermediate proxy labels
+        // except during connect / terminal states.
+        if (
+          s === "tcp_connected" ||
+          s === "connecting" ||
+          s === "closed" ||
+          s === "tcp_closed"
+        ) {
+          if (this.status === "connecting" || s === "closed" || s === "tcp_closed") {
+            this.status = s === "tcp_connected" ? "connecting" : s;
+          }
+        } else if (s === "authorized" && this.jobs === 0) {
+          this.status = "authorized";
+          this.armJobWaitWatch();
+        }
         this.emit();
       },
       onError: (e) => {
         this.lastError = e;
         this.status = "error";
+        this.clearJobWaitWatch();
         this.emit();
       },
       onDifficulty: (d) => {
         this.difficulty = d;
         this.emit();
-        // restart round with new target
         if (this.job) this.dispatchRound();
       },
       onAuthorized: (ok) => {
-        this.status = ok ? "authorized" : "auth_failed";
+        if (ok) {
+          this.status = this.jobs > 0 ? "mining" : "authorized";
+          if (this.jobs === 0) this.armJobWaitWatch();
+          // Job may have arrived before authorize; ensure workers are hashing.
+          if (this.job) this.dispatchRound();
+        } else {
+          this.status = "auth_failed";
+          this.clearJobWaitWatch();
+        }
         this.emit();
       },
       onJob: (job) => {
         this.job = job;
         this.jobs += 1;
         this.status = "mining";
+        this.clearJobWaitWatch();
         if (job.cleanJobs) this.extranonce2Counter = 0;
         this.difficulty = this.client.getDifficulty();
         this.dispatchRound();
@@ -149,23 +192,20 @@ export class PoolMineController {
       this.lastError = e instanceof Error ? e.message : String(e);
       this.status = "error";
       this.running = false;
+      this.clearJobWaitWatch();
+      this.teardownWorkers();
       this.emit();
       return;
     }
 
-    const nWorkers =
-      this.algo === "scrypt"
-        ? Math.min(4, suggestedWorkers())
-        : suggestedWorkers();
-    this.spawnWorkers(nWorkers);
-    this.rateTimer = setInterval(() => {
-      const now = performance.now();
-      const dt = (now - this.windowStart) / 1000;
-      if (dt > 0) this.hashrate = this.windowHashes / dt;
-      this.windowHashes = 0;
-      this.windowStart = now;
-      this.emit();
-    }, 1000);
+    // Safety: job may have been stored while workers were already up, or
+    // connect resolved before onJob finished dispatching — re-dispatch.
+    if (this.running && this.job) {
+      this.dispatchRound();
+    } else if (this.running && this.jobs === 0) {
+      this.status = "authorized";
+      this.armJobWaitWatch();
+    }
 
     this.emit();
   }
@@ -173,7 +213,42 @@ export class PoolMineController {
   stop() {
     this.running = false;
     this.status = "idle";
+    this.job = null;
+    this.clearJobWaitWatch();
     void this.client.close();
+    this.teardownWorkers();
+    if (this.rateTimer) {
+      clearInterval(this.rateTimer);
+      this.rateTimer = null;
+    }
+    this.hashrate = 0;
+    this.emit();
+  }
+
+  private armJobWaitWatch() {
+    this.clearJobWaitWatch();
+    this.jobWaitTimer = setTimeout(() => {
+      this.jobWaitTimer = null;
+      if (!this.running || this.jobs > 0) return;
+      if (
+        this.status === "authorized" ||
+        this.status === "connecting" ||
+        this.status === "tcp_connected"
+      ) {
+        this.status = "waiting_job";
+        this.emit();
+      }
+    }, JOB_WAIT_MS);
+  }
+
+  private clearJobWaitWatch() {
+    if (this.jobWaitTimer) {
+      clearTimeout(this.jobWaitTimer);
+      this.jobWaitTimer = null;
+    }
+  }
+
+  private teardownWorkers() {
     for (const w of this.workers) {
       try {
         w.postMessage({ type: "stop" } satisfies StratumWorkerIn);
@@ -183,12 +258,6 @@ export class PoolMineController {
       w.terminate();
     }
     this.workers = [];
-    if (this.rateTimer) {
-      clearInterval(this.rateTimer);
-      this.rateTimer = null;
-    }
-    this.hashrate = 0;
-    this.emit();
   }
 
   private spawnWorkers(n: number) {
@@ -239,7 +308,6 @@ export class PoolMineController {
         nonceEnd,
         batchSize: batch,
       };
-      // tag epoch on worker via closure — ignore stale dones
       (this.workers[i] as Worker & { __epoch?: number }).__epoch = epoch;
       this.workers[i].postMessage(msg);
     }
