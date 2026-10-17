@@ -92,7 +92,7 @@ const dict = {
     coinBlocked: "此幣種尚未支援真實挖礦",
     coinAlgoBlocked: "瀏覽器不支援此演算法",
     highDiffWarn:
-      "對照 ESP32／NerdMiner：public-pool 原始碼只在 Accepted share 後才寫入 worker；官網「有幾個 worker」≠ 連上就顯示。NerdMiner 靠 suggest_difficulty≈0.00015 快速交 share；但 managed public-pool.io 現況地板=1（GitHub #152，ESP32 同樣受影響）。站內看 Accepted；或改選 Seth／Stompi／NerdMiners.org 等低難度池。",
+      "對照 ESP32／NerdMiner：public-pool 原始碼只在 Accepted share 後才寫入 worker；官網「有幾個 worker」≠ 連上就顯示。NerdMiner 靠 suggest_difficulty≈0.00015 快速交 share；但 managed public-pool.io 現況地板=1（GitHub #152，ESP32 同樣受影響）。站內看 Accepted；請改選「NerdMiners.org Solo」或「SoloMining.de」（實測難度 0.001／0.00015）。",
     connectWallet: "連接錢包",
     disconnectWallet: "中斷連接",
     connectedAs: "已連接",
@@ -207,7 +207,7 @@ const dict = {
     coinBlocked: "This coin is not available for real mining yet",
     coinAlgoBlocked: "This algorithm is not supported in the browser",
     highDiffWarn:
-      "vs ESP32/NerdMiner: public-pool only inserts a worker after an Accepted share — connect alone does not list you. NerdMiner used suggest_difficulty≈0.00015 for fast shares; managed public-pool.io now floors at 1 (GitHub #152; ESP32 hit the same). Watch on-site Accepted, or try Seth/Stompi/NerdMiners.org low-diff pools.",
+      "vs ESP32/NerdMiner: public-pool only inserts a worker after an Accepted share — connect alone does not list you. NerdMiner used suggest_difficulty≈0.00015 for fast shares; managed public-pool.io now floors at 1 (GitHub #152; ESP32 hit the same). Watch on-site Accepted, switch to NerdMiners.org Solo or SoloMining.de (probed diff 0.001 / 0.00015).",
     connectWallet: "Connect wallet",
     disconnectWallet: "Disconnect",
     connectedAs: "Connected",

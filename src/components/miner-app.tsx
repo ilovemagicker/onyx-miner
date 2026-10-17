@@ -589,7 +589,7 @@ export function MinerApp() {
         <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("highDiffWarn")}
           <div className="mt-1 text-xs opacity-80">
-            {t("buildStamp")}: esp-worker-r1
+            {t("buildStamp")}: esp-worker-r2
             {stratumUserShown ? ` · ${t("stratumUser")}: ${stratumUserShown}` : ""}
           </div>
         </div>
