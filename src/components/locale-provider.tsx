@@ -82,9 +82,10 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
   const { locale, setLocale, t: tr } = useI18n();
   return (
     <div
-      className={`inline-flex items-center rounded-lg border border-border bg-surface-2 p-0.5 text-xs ${className}`}
+      className={`inline-flex items-center border-2 border-border bg-surface-2 p-0.5 text-xs ${className}`}
       role="group"
       aria-label={tr("language")}
+      style={{ borderRadius: 2 }}
     >
       {SUPPORTED_LOCALES.map((code) => {
         const active = locale === code;
@@ -93,11 +94,12 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
             key={code}
             type="button"
             onClick={() => setLocale(code)}
-            className={`rounded-md px-2 py-1 font-medium transition ${
+            className={`px-2 py-1 font-medium transition ${
               active
-                ? "bg-brand-soft text-white"
+                ? "bg-brand-soft text-zinc-950"
                 : "text-muted hover:text-zinc-200"
             }`}
+            style={{ borderRadius: 0 }}
             aria-pressed={active}
           >
             {LOCALE_LABELS[code]}

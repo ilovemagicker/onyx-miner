@@ -1,6 +1,21 @@
 import type { Metadata } from "next";
+import { Press_Start_2P, VT323 } from "next/font/google";
 import { AppProviders } from "@/components/providers";
 import "./globals.css";
+
+const pressStart = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-press-start",
+  display: "swap",
+});
+
+const vt323 = VT323({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-vt323",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Miner · Browser Stratum Miner — Onyx Labs",
@@ -22,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-Hant">
+    <html lang="zh-Hant" className={`${pressStart.variable} ${vt323.variable}`}>
       <body className="min-h-screen antialiased">
         <AppProviders>{children}</AppProviders>
       </body>

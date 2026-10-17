@@ -81,11 +81,8 @@ export function WalletConnectBar({
     setError(null);
   };
 
-  // BCH: show note only
   if (coin === "BCH") {
-    return (
-      <p className="mt-2 text-xs text-muted">{t("walletBchNote")}</p>
-    );
+    return <p className="mt-2 text-xs text-muted">{t("walletBchNote")}</p>;
   }
 
   if (coin !== "BTC") return null;
@@ -95,7 +92,11 @@ export function WalletConnectBar({
       <div className="flex flex-wrap items-center gap-2">
         {connectedId ? (
           <>
-            <span className="rounded-lg border border-success/40 bg-success/10 px-3 py-1.5 text-xs text-success">
+            <span className="inline-flex items-center gap-1.5 border-2 border-success/50 bg-success/10 px-3 py-1.5 text-xs text-success">
+              <span
+                className="status-lamp status-lamp--mining"
+                aria-hidden
+              />
               {t("connectedAs")}:{" "}
               {wallets.find((w) => w.id === connectedId)?.name ?? connectedId}
             </span>
@@ -103,7 +104,7 @@ export function WalletConnectBar({
               type="button"
               disabled={mining || busy}
               onClick={onDisconnect}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-50"
+              className="pixel-btn border-2 border-border bg-transparent px-3 py-1.5 text-xs text-muted hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-50"
             >
               {t("disconnectWallet")}
             </button>
@@ -121,15 +122,13 @@ export function WalletConnectBar({
                   setOpen((o) => !o);
                 }
               }}
-              className="rounded-lg border border-brand/50 bg-brand/15 px-3 py-2 text-sm font-medium text-brand hover:bg-brand/25 disabled:opacity-50"
+              className="pixel-btn border-2 border-brand bg-transparent px-3 py-2 text-sm font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
             >
               {busy ? t("walletConnecting") : t("connectWallet")}
             </button>
             {open && (
-              <div className="absolute left-0 z-20 mt-1 min-w-[220px] rounded-lg border border-border bg-surface-2 p-1 shadow-xl">
-                <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted">
-                  {t("walletPick")}
-                </div>
+              <div className="absolute left-0 z-20 mt-1 min-w-[220px] border-2 border-border bg-surface-2 p-1 shadow-[3px_3px_0_#000]">
+                <div className="pixel-label px-2 py-1">{t("walletPick")}</div>
                 {available.length === 0 ? (
                   <div className="space-y-1 px-2 py-2 text-xs text-muted">
                     <p>{t("walletNone")}</p>
@@ -150,7 +149,7 @@ export function WalletConnectBar({
                     <button
                       key={w.id}
                       type="button"
-                      className="block w-full rounded-md px-2 py-2 text-left text-sm text-zinc-100 hover:bg-brand/20"
+                      className="block w-full px-2 py-2 text-left text-sm text-zinc-100 hover:bg-brand/20"
                       onClick={() => void onConnect(w.id)}
                     >
                       {w.name}
@@ -158,7 +157,7 @@ export function WalletConnectBar({
                   ))
                 )}
                 {available.length > 0 && (
-                  <div className="border-t border-border px-2 py-1.5 text-[10px] text-muted">
+                  <div className="border-t-2 border-border px-2 py-1.5 text-[10px] text-muted">
                     {wallets
                       .filter((w) => !w.available)
                       .map((w) => (
