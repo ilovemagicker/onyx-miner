@@ -71,6 +71,20 @@ function mapPoolStatus(
   }
 }
 
+
+function etaFirstShareLabel(
+  hashrate: number,
+  difficulty: number,
+  locale: "zh-Hant" | "en"
+): string {
+  if (!Number.isFinite(hashrate) || hashrate <= 0 || !Number.isFinite(difficulty) || difficulty <= 0) {
+    return "—";
+  }
+  // ~2^32 hashes per difficulty-1 share
+  const seconds = (difficulty * 0x100000000) / hashrate;
+  return formatDuration(seconds, locale);
+}
+
 function StatCard({
   label,
   children,
@@ -128,6 +142,7 @@ export function MinerApp() {
   const [netLoading, setNetLoading] = useState(true);
   const [mining, setMining] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [stratumUserShown, setStratumUserShown] = useState("");
   const [acceptedFlash, setAcceptedFlash] = useState(false);
   const [rejectedFlash, setRejectedFlash] = useState(false);
   const prevAccepted = useRef(0);
@@ -349,6 +364,7 @@ export function MinerApp() {
       password: password || "x",
       mergeLtc,
     });
+    if (creds.user) setStratumUserShown(creds.user);
     if (creds.error || !creds.user) return;
     setMining(true);
     await poolRef.current.start(selectedPool, creds.user, creds.password);
@@ -491,6 +507,14 @@ export function MinerApp() {
                 </span>{" "}
                 · {t("sharesSubmitted")}: {poolStats.submitted}
               </div>
+              <div className="mt-1 text-xs text-warning">
+                {t("etaFirstShare")}:{" "}
+                {etaFirstShareLabel(
+                  liveHashrate,
+                  poolStats.difficulty || 1,
+                  locale
+                )}
+              </div>
             </StatCard>
             <StatCard label={t("shareDiff")}>
               <div className="hud-num font-semibold">
@@ -538,11 +562,14 @@ export function MinerApp() {
                 {t("waitingJobHint")}
               </div>
             )}
-          {mining &&
-            poolStats.workerCount === 0 &&
-            poolStats.status === "mining" && (
+          {mining && (
+              <div className="sm:col-span-3 text-xs text-muted">
+                {t("poolSearchNote")}
+              </div>
+            )}
+          {mining && poolStats.workerCount === 0 && poolStats.status === "mining" && (
               <div className="sm:col-span-3 text-xs text-danger">
-                Workers = 0
+                {t("workers")} = 0（瀏覽器雜湊執行緒未啟動 — 請硬重新整理）
               </div>
             )}
         </div>
@@ -561,6 +588,10 @@ export function MinerApp() {
       {highDiff && (
         <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("highDiffWarn")}
+          <div className="mt-1 text-xs opacity-80">
+            {t("buildStamp")}: 3328f12+ui1
+            {stratumUserShown ? ` · ${t("stratumUser")}: ${stratumUserShown}` : ""}
+          </div>
         </div>
       )}
       {mode === "pool" && scryptCoin && (
