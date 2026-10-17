@@ -379,7 +379,7 @@ export function MinerApp() {
     return formatDuration(secs, locale);
   }, [network, liveHashrate, locale, mode]);
 
-  const highDiff = mode === "pool" && poolStats.difficulty >= 100 && mining;
+  const highDiff = mode === "pool" && poolStats.difficulty >= 1 && mining;
   const scryptCoin = coin === "LTC" || coin === "DOGE";
 
   const statusUi = useMemo(() => {

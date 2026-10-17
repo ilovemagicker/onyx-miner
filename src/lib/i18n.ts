@@ -88,7 +88,7 @@ const dict = {
     coinBlocked: "此幣種尚未支援真實挖礦",
     coinAlgoBlocked: "瀏覽器不支援此演算法",
     highDiffWarn:
-      "此礦池份額難度偏高，瀏覽器可能很久才有 accepted share；算力與協議仍是真實的。",
+      "此礦池份額難度 ≥1：瀏覽器通常要數小時才可能有 accepted share。在 Public Pool 官網「搜地址」在第一次 share 前會顯示 0 workers／0 算力——這是礦池統計門檻，不是連線失敗。站內若顯示算力與工作數 >0，即代表正在挖。",
     connectWallet: "連接錢包",
     disconnectWallet: "中斷連接",
     connectedAs: "已連接",
@@ -199,7 +199,7 @@ const dict = {
     coinBlocked: "This coin is not available for real mining yet",
     coinAlgoBlocked: "This algorithm is not supported in the browser",
     highDiffWarn:
-      "This pool’s share difficulty is high — accepted shares may be rare in a browser. Hashrate and protocol are still real.",
+      "This pool’s share difficulty is ≥1: a browser may need hours for the first accepted share. Public Pool’s address search shows 0 workers / 0 hashrate until that first share — that is the pool’s stats threshold, not a failed connection. If this site shows hashrate and jobs > 0, mining is working.",
     connectWallet: "Connect wallet",
     disconnectWallet: "Disconnect",
     connectedAs: "Connected",
