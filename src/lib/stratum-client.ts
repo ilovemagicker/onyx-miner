@@ -33,6 +33,9 @@ export class StratumClient {
   private difficulty = 1;
   private handlers: Handler = {};
   private connected = false;
+  /** Last suggest_difficulty value (NerdMiner-compatible keepalive). */
+  private suggestDiff = 0.00015;
+  private suggestKeepalive: ReturnType<typeof setInterval> | null = null;
 
   getExtranonce1() {
     return this.extranonce1;
@@ -51,7 +54,7 @@ export class StratumClient {
     this.handlers = h;
   }
 
-  async connect(pool: PoolInfo, user: string, password: string, suggestDiff = 0.01) {
+  async connect(pool: PoolInfo, user: string, password: string, suggestDiff = 0.00015) {
     await this.close();
     return new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(PROXY_WS_URL);
@@ -98,7 +101,7 @@ export class StratumClient {
             this.send({
               id: 1,
               method: "mining.subscribe",
-              params: ["onyx-miner/1.2"],
+              params: ["onyx-miner/1.3"],
             });
           } else if (msg.state === "tcp_closed") {
             this.connected = false;
@@ -139,16 +142,15 @@ export class StratumClient {
           const result = msg.result as unknown[];
           this.extranonce1 = String(result[1] || "");
           this.extranonce2Size = Number(result[2] || 4);
-          this.send({
-            id: 10,
-            method: "mining.suggest_difficulty",
-            params: [suggestDiff],
-          });
+          this.suggestDiff = suggestDiff;
+          // NerdMiner order: authorize first, then suggest_difficulty
           this.send({
             id: 2,
             method: "mining.authorize",
             params: [user, password || "x"],
           });
+          this.sendSuggestDifficulty();
+          this.armSuggestKeepalive();
           return;
         }
 
@@ -212,8 +214,35 @@ export class StratumClient {
     this.ws.send(JSON.stringify(obj) + "\n");
   }
 
+  /** mining.suggest_difficulty — same as NerdMiner DEFAULT_DIFFICULTY path. */
+  private sendSuggestDifficulty() {
+    const id = this.nextId++;
+    this.send({
+      id,
+      method: "mining.suggest_difficulty",
+      params: [this.suggestDiff],
+    });
+  }
+
+  /** NerdMiner re-sends suggest ~every 30s as keepalive / re-negotiate. */
+  private armSuggestKeepalive() {
+    this.clearSuggestKeepalive();
+    this.suggestKeepalive = setInterval(() => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+      this.sendSuggestDifficulty();
+    }, 30_000);
+  }
+
+  private clearSuggestKeepalive() {
+    if (this.suggestKeepalive) {
+      clearInterval(this.suggestKeepalive);
+      this.suggestKeepalive = null;
+    }
+  }
+
   async close() {
     this.connected = false;
+    this.clearSuggestKeepalive();
     try {
       this.ws?.close();
     } catch {

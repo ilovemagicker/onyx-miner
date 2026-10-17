@@ -187,7 +187,7 @@ export class PoolMineController {
     });
 
     try {
-      await this.client.connect(pool, this.user, password || pool.password, 0.01);
+      await this.client.connect(pool, this.user, password || pool.password, 0.00015);
     } catch (e) {
       this.lastError = e instanceof Error ? e.message : String(e);
       this.status = "error";

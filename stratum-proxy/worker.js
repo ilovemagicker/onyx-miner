@@ -18,6 +18,13 @@ const ALLOW = new Map([
   ["sgsolo.ckpool.org", new Set([3333])],
   ["ausolo.ckpool.org", new Set([3333])],
   ["public-pool.io", new Set([3333, 4333, 13333, 14333, 21496])],
+  // NerdMiner-recommended low-difficulty public-pool forks / ESP32 pools
+  ["pool.sethforprivacy.com", new Set([3333])],
+  ["pool.stompi.de", new Set([3333])],
+  ["pool.nerdminers.org", new Set([3333])],
+  ["pool.nerdminer.io", new Set([3333])],
+  ["pool.pyblock.xyz", new Set([3333])],
+  ["pool.solomining.de", new Set([3333])],
   ["solo.atlaspool.io", new Set([3333, 4333])],
   // BCH (ViaBTC)
   ["bch.viabtc.io", new Set([3333, 443])],
