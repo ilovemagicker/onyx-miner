@@ -17,6 +17,8 @@ export type StratumWorkerIn =
   | {
       type: "mine";
       workerId: number;
+      /** Controller epoch — echoed on every outbound message. */
+      epoch: number;
       algo: AlgoId;
       jobId: string;
       prevhash: string;
@@ -33,31 +35,40 @@ export type StratumWorkerIn =
       nonceEnd: number;
       batchSize: number;
     }
-  | { type: "stop" };
+  | { type: "stop"; epoch?: number };
 
 export type StratumWorkerOut =
   | {
       type: "progress";
       workerId: number;
+      epoch: number;
       hashes: number;
       bestHashHex: string;
     }
   | {
       type: "share";
       workerId: number;
+      epoch: number;
       jobId: string;
       extranonce2: string;
       ntime: string;
       nonceHex: string;
       hashHex: string;
     }
-  | { type: "done"; workerId: number };
+  | { type: "done"; workerId: number; epoch: number };
 
 let stopFlag = false;
+/** Epoch of the mine loop currently running (0 = idle). */
+let activeEpoch = 0;
+let mineGeneration = 0;
 
 function powHash(algo: AlgoId, header: Uint8Array): Uint8Array {
   if (algo === "scrypt") return scryptHeader(header);
   return sha256d(header);
+}
+
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
@@ -67,8 +78,16 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
     return;
   }
   if (msg.type !== "mine") return;
-  stopFlag = false;
 
+  // Abort any in-flight mine loop; only the latest generation continues.
+  stopFlag = true;
+  const gen = ++mineGeneration;
+  stopFlag = false;
+  activeEpoch = msg.epoch;
+  void runMine(msg, gen);
+};
+
+async function runMine(msg: Extract<StratumWorkerIn, { type: "mine" }>, gen: number) {
   const target = targetFromDifficulty(msg.difficulty);
   const merkle = merkleFromCoinbase(
     msg.coinb1,
@@ -82,8 +101,11 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
   let hashes = 0;
   let lastReport = 0;
   const batch = Math.max(8, msg.batchSize);
+  const epoch = msg.epoch;
 
-  for (let nonce = msg.nonceStart; nonce < msg.nonceEnd && !stopFlag; nonce++) {
+  for (let nonce = msg.nonceStart; nonce < msg.nonceEnd; nonce++) {
+    if (stopFlag || gen !== mineGeneration) break;
+
     const header = assembleStratumHeader({
       versionHex: msg.version,
       prevhashHex: msg.prevhash,
@@ -104,6 +126,7 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
       (self as DedicatedWorkerGlobalScope).postMessage({
         type: "share",
         workerId: msg.workerId,
+        epoch,
         jobId: msg.jobId,
         extranonce2: msg.extranonce2,
         ntime: msg.ntime,
@@ -118,22 +141,31 @@ self.onmessage = (ev: MessageEvent<StratumWorkerIn>) => {
       (self as DedicatedWorkerGlobalScope).postMessage({
         type: "progress",
         workerId: msg.workerId,
+        epoch,
         hashes: delta,
         bestHashHex: bytesToHex(bestDisp),
       } satisfies StratumWorkerOut);
+      // Yield so stop / newer mine messages can be processed (stale-job fix).
+      await yieldToEventLoop();
+      if (stopFlag || gen !== mineGeneration) break;
     }
   }
+
+  // Only the latest generation reports final progress/done for its epoch.
+  if (gen !== mineGeneration) return;
 
   (self as DedicatedWorkerGlobalScope).postMessage({
     type: "progress",
     workerId: msg.workerId,
+    epoch,
     hashes: hashes - lastReport,
     bestHashHex: bytesToHex(bestDisp),
   } satisfies StratumWorkerOut);
   (self as DedicatedWorkerGlobalScope).postMessage({
     type: "done",
     workerId: msg.workerId,
+    epoch,
   } satisfies StratumWorkerOut);
-};
+}
 
 export {};

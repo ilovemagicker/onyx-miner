@@ -14,6 +14,8 @@ export type PoolMineStats = {
   accepted: number;
   rejected: number;
   submitted: number;
+  /** Shares found for an old job/epoch and never sent to the pool. */
+  staleDropped: number;
   jobs: number;
   status: string;
   workerCount: number;
@@ -41,6 +43,9 @@ export class PoolMineController {
   private accepted = 0;
   private rejected = 0;
   private submitted = 0;
+  private staleDropped = 0;
+  /** jobId|en2|nonceHex — drop duplicate submits (NerdMiners "Duplicate"). */
+  private submittedKeys = new Set<string>();
   private jobs = 0;
   private status = "idle";
   private lastShareHash?: string;
@@ -52,6 +57,7 @@ export class PoolMineController {
   private rateTimer: ReturnType<typeof setInterval> | null = null;
   private jobWaitTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingDone = 0;
+  /** Bumped on every new job / difficulty re-dispatch; workers echo it back. */
   private jobEpoch = 0;
   private algo: import("./pools").AlgoId = "sha256d";
 
@@ -75,6 +81,7 @@ export class PoolMineController {
       accepted: this.accepted,
       rejected: this.rejected,
       submitted: this.submitted,
+      staleDropped: this.staleDropped,
       jobs: this.jobs,
       status: this.status,
       workerCount: this.workers.length,
@@ -98,7 +105,10 @@ export class PoolMineController {
     this.accepted = 0;
     this.rejected = 0;
     this.submitted = 0;
+    this.staleDropped = 0;
+    this.submittedKeys.clear();
     this.jobs = 0;
+    this.jobEpoch = 0;
     this.lastError = undefined;
     this.lastShareHash = undefined;
     this.windowHashes = 0;
@@ -157,14 +167,15 @@ export class PoolMineController {
       onDifficulty: (d) => {
         this.difficulty = d;
         this.emit();
-        if (this.job) this.dispatchRound();
+        // Difficulty change invalidates in-flight work at the old target.
+        if (this.job) this.dispatchRound({ abortPrevious: true });
       },
       onAuthorized: (ok) => {
         if (ok) {
           this.status = this.jobs > 0 ? "mining" : "authorized";
           if (this.jobs === 0) this.armJobWaitWatch();
           // Job may have arrived before authorize; ensure workers are hashing.
-          if (this.job) this.dispatchRound();
+          if (this.job) this.dispatchRound({ abortPrevious: true });
         } else {
           this.status = "auth_failed";
           this.clearJobWaitWatch();
@@ -178,7 +189,8 @@ export class PoolMineController {
         this.clearJobWaitWatch();
         if (job.cleanJobs) this.extranonce2Counter = 0;
         this.difficulty = this.client.getDifficulty();
-        this.dispatchRound();
+        // New notify → abort old nonce search immediately (NerdMiners stale reject).
+        this.dispatchRound({ abortPrevious: true });
         this.emit();
       },
       onSubmitResult: (_id, accepted, error) => {
@@ -206,7 +218,7 @@ export class PoolMineController {
     // Safety: job may have been stored while workers were already up, or
     // connect resolved before onJob finished dispatching — re-dispatch.
     if (this.running && this.job) {
-      this.dispatchRound();
+      this.dispatchRound({ abortPrevious: true });
     } else if (this.running && this.jobs === 0) {
       this.status = "authorized";
       this.armJobWaitWatch();
@@ -219,6 +231,8 @@ export class PoolMineController {
     this.running = false;
     this.status = "idle";
     this.job = null;
+    this.jobEpoch += 1; // invalidate any in-flight worker messages
+    this.abortWorkers();
     this.clearJobWaitWatch();
     void this.client.close();
     this.teardownWorkers();
@@ -253,13 +267,19 @@ export class PoolMineController {
     }
   }
 
-  private teardownWorkers() {
+  private abortWorkers() {
     for (const w of this.workers) {
       try {
-        w.postMessage({ type: "stop" } satisfies StratumWorkerIn);
+        w.postMessage({ type: "stop", epoch: this.jobEpoch } satisfies StratumWorkerIn);
       } catch {
         /* ignore */
       }
+    }
+  }
+
+  private teardownWorkers() {
+    this.abortWorkers();
+    for (const w of this.workers) {
       w.terminate();
     }
     this.workers = [];
@@ -278,10 +298,17 @@ export class PoolMineController {
     }
   }
 
-  private dispatchRound() {
+  private dispatchRound(_opts?: { abortPrevious?: boolean }) {
     if (!this.running || !this.job || this.workers.length === 0) return;
     const job = this.job;
-    const epoch = ++this.jobEpoch;
+
+    // Always bump epoch + stop in-flight work. Covers new notify, difficulty
+    // change, and extranonce2 rollover — prevents stale job_id submits and
+    // pendingDone double-counts when workers finish an aborted round.
+    this.jobEpoch += 1;
+    this.abortWorkers();
+
+    const epoch = this.jobEpoch;
     const n = this.workers.length;
     const chunk = Math.floor(NONCE_SPACE / n);
     this.pendingDone = n;
@@ -297,6 +324,7 @@ export class PoolMineController {
       const msg: StratumWorkerIn = {
         type: "mine",
         workerId: i,
+        epoch,
         algo: this.algo,
         jobId: job.jobId,
         prevhash: job.prevhash,
@@ -313,13 +341,22 @@ export class PoolMineController {
         nonceEnd,
         batchSize: batch,
       };
-      (this.workers[i] as Worker & { __epoch?: number }).__epoch = epoch;
       this.workers[i].postMessage(msg);
     }
   }
 
   private onWorkerMsg(msg: StratumWorkerOut) {
     if (!this.running) return;
+
+    // Drop everything from an aborted epoch (stale job / old difficulty).
+    if (msg.epoch !== this.jobEpoch) {
+      if (msg.type === "share") {
+        this.staleDropped += 1;
+        this.emit();
+      }
+      return;
+    }
+
     if (msg.type === "progress") {
       this.totalHashes += msg.hashes;
       this.windowHashes += msg.hashes;
@@ -333,7 +370,23 @@ export class PoolMineController {
       this.emit();
       return;
     }
+
     if (msg.type === "share") {
+      // Belt-and-suspenders: job id must still match the active notify.
+      if (!this.job || msg.jobId !== this.job.jobId) {
+        this.staleDropped += 1;
+        this.emit();
+        return;
+      }
+      const key = `${msg.jobId}|${msg.extranonce2}|${msg.nonceHex}`;
+      if (this.submittedKeys.has(key)) {
+        this.staleDropped += 1;
+        this.emit();
+        return;
+      }
+      // Bound memory: keep recent keys only.
+      if (this.submittedKeys.size > 4000) this.submittedKeys.clear();
+      this.submittedKeys.add(key);
       this.submitted += 1;
       this.lastShareHash = msg.hashHex;
       this.client.submit({
@@ -346,9 +399,11 @@ export class PoolMineController {
       this.emit();
       return;
     }
+
     if (msg.type === "done") {
       this.pendingDone -= 1;
       if (this.pendingDone <= 0 && this.running && this.job) {
+        // Next extranonce2 on the same notify (epoch bumps inside dispatchRound).
         this.dispatchRound();
       }
     }

@@ -134,6 +134,8 @@ export function MinerApp() {
   const [mode, setMode] = useState<Mode>("pool");
   const [coin, setCoin] = useState<CoinId>("BTC");
   const [poolId, setPoolId] = useState<string>("btc-nerdminers-org");
+  /** Solo vs shared (PPLNS) — filters the pool list. */
+  const [poolKind, setPoolKind] = useState<"solo" | "pool">("solo");
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("x");
   const [mergeLtc, setMergeLtc] = useState("");
@@ -168,6 +170,7 @@ export function MinerApp() {
     accepted: 0,
     rejected: 0,
     submitted: 0,
+    staleDropped: 0,
     jobs: 0,
     status: "idle",
     workerCount: 0,
@@ -178,7 +181,12 @@ export function MinerApp() {
   const workerHint = useMemo(() => suggestedWorkers(), []);
 
   const coinInfo = COINS.find((c) => c.id === coin)!;
-  const pools = useMemo(() => poolsForCoin(coin), [coin]);
+  const pools = useMemo(() => {
+    const all = poolsForCoin(coin);
+    const filtered = all.filter((p) => p.kind === poolKind);
+    // Fallback if coin has no pools of this kind (e.g. some alts).
+    return filtered.length > 0 ? filtered : all;
+  }, [coin, poolKind]);
   const selectedPool: PoolInfo | undefined =
     pools.find((p) => p.id === poolId) ?? pools[0];
 
@@ -527,6 +535,12 @@ export function MinerApp() {
                   {poolStats.rejected}
                 </span>{" "}
                 · {t("sharesSubmitted")}: {poolStats.submitted}
+                {poolStats.staleDropped > 0 && (
+                  <>
+                    {" "}
+                    · {t("sharesStaleDropped")}: {poolStats.staleDropped}
+                  </>
+                )}
               </div>
               <div className="mt-1 text-xs text-warning">
                 {t("etaFirstShare")}:{" "}
@@ -794,6 +808,46 @@ export function MinerApp() {
                   <label className="mb-1.5 block text-sm font-medium text-zinc-300">
                     {t("pool")}
                   </label>
+                  <div className="mb-2 inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm">
+                    {(
+                      [
+                        ["solo", "poolKindSolo"],
+                        ["pool", "poolKindShared"],
+                      ] as const
+                    ).map(([k, labelKey]) => (
+                      <button
+                        key={k}
+                        type="button"
+                        disabled={mining}
+                        onClick={() => {
+                          setPoolKind(k);
+                          const all = poolsForCoin(coin);
+                          const list = all.filter((p) => p.kind === k);
+                          const preferred =
+                            k === "solo"
+                              ? list.find((p) => p.id === "btc-nerdminers-org") ??
+                                list[0]
+                              : list.find((p) => p.id === "btc-public-pplns") ??
+                                list[0];
+                          if (preferred) setPoolId(preferred.id);
+                        }}
+                        className={`px-3 py-1.5 font-medium transition disabled:opacity-50 ${
+                          poolKind === k
+                            ? "bg-brand-soft text-zinc-950"
+                            : "text-muted hover:text-zinc-200"
+                        }`}
+                        style={{ borderRadius: 0 }}
+                        aria-pressed={poolKind === k}
+                      >
+                        {t(labelKey)}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mb-2 text-xs text-muted">
+                    {poolKind === "solo"
+                      ? t("poolKindSoloHint")
+                      : t("poolKindSharedHint")}
+                  </p>
                   <div className="mb-2 grid gap-2 sm:grid-cols-1">
                     {pools.map((p) => {
                       const sel = selectedPool?.id === p.id;
