@@ -14,7 +14,12 @@ import {
   type NetworkSnapshot,
 } from "@/lib/bitcoin";
 import { buildStratumCredentials } from "@/lib/stratum-credentials";
-import { MineController, suggestedWorkers } from "@/lib/mine-controller";
+import {
+  MineController,
+  clampWorkerCount,
+  maxWorkers,
+  suggestedWorkers,
+} from "@/lib/mine-controller";
 import type { MineStats } from "@/lib/mine-controller";
 import {
   COINS,
@@ -34,6 +39,7 @@ const ADDR_KEY = "onyx_miner_address";
 const MODE_KEY = "onyx_miner_mode";
 const COIN_KEY = "onyx_miner_coin";
 const POOL_KEY = "onyx_miner_pool";
+const WORKERS_KEY = "onyx_miner_workers";
 
 type Mode = "demo" | "pool";
 
@@ -136,6 +142,8 @@ export function MinerApp() {
   const [poolId, setPoolId] = useState<string>("btc-nerdminers-org");
   /** Solo vs shared (PPLNS) — filters the pool list. */
   const [poolKind, setPoolKind] = useState<"solo" | "pool">("solo");
+  /** Concurrent mining workers (performance mode). */
+  const [workerCount, setWorkerCount] = useState(1);
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("x");
   const [mergeLtc, setMergeLtc] = useState("");
@@ -178,7 +186,13 @@ export function MinerApp() {
 
   const demoRef = useRef<MineController | null>(null);
   const poolRef = useRef<PoolMineController | null>(null);
-  const workerHint = useMemo(() => suggestedWorkers(), []);
+  const workerMax = useMemo(() => maxWorkers(), []);
+  const workerDefault = useMemo(() => suggestedWorkers(), []);
+  const workerPresets = useMemo(
+    () => [1, 2, 4, 8].filter((n) => n <= workerMax),
+    [workerMax]
+  );
+  const workerLagWarn = workerCount > Math.max(1, Math.floor(workerMax / 2));
 
   const coinInfo = COINS.find((c) => c.id === coin)!;
   const pools = useMemo(() => {
@@ -228,6 +242,14 @@ export function MinerApp() {
       }
       const p = localStorage.getItem(POOL_KEY);
       if (p) setPoolId(p);
+      const w = localStorage.getItem(WORKERS_KEY);
+      if (w) {
+        const n = Number(w);
+        if (Number.isFinite(n)) setWorkerCount(clampWorkerCount(n));
+        else setWorkerCount(suggestedWorkers());
+      } else {
+        setWorkerCount(suggestedWorkers());
+      }
     } catch {
       /* ignore */
     }
@@ -239,16 +261,21 @@ export function MinerApp() {
       localStorage.setItem(MODE_KEY, mode);
       localStorage.setItem(COIN_KEY, coin);
       if (selectedPool) localStorage.setItem(POOL_KEY, selectedPool.id);
+      localStorage.setItem(WORKERS_KEY, String(workerCount));
     } catch {
       /* ignore */
     }
-  }, [address, mode, coin, selectedPool]);
+  }, [address, mode, coin, selectedPool, workerCount]);
 
   useEffect(() => {
     if (!pools.some((p) => p.id === poolId) && pools[0]) {
       setPoolId(pools[0].id);
     }
   }, [pools, poolId]);
+
+  useEffect(() => {
+    setWorkerCount((n) => clampWorkerCount(n));
+  }, [workerMax]);
 
   useEffect(() => {
     if (!selectedPool || mining) return;
@@ -353,7 +380,7 @@ export function MinerApp() {
       if (!network || !demoRef.current) return;
       if (address.trim() && addrCheck && !addrCheck.ok) return;
       demoRef.current.setAddress(address);
-      demoRef.current.start(network, workerHint);
+      demoRef.current.start(network, workerCount);
       setMining(true);
       return;
     }
@@ -376,7 +403,7 @@ export function MinerApp() {
     if (creds.user) setStratumUserShown(creds.user);
     if (creds.error || !creds.user) return;
     setMining(true);
-    await poolRef.current.start(selectedPool, creds.user, creds.password);
+    await poolRef.current.start(selectedPool, creds.user, creds.password, workerCount);
     if (!poolRef.current.isRunning()) setMining(false);
   };
 
@@ -394,7 +421,7 @@ export function MinerApp() {
     mode === "demo" ? demoStats.bestHashHex : poolStats.bestHashHex;
   const liveWorkers =
     mode === "demo"
-      ? demoStats.workerCount || workerHint
+      ? demoStats.workerCount || workerCount
       : // Pool mode: show real worker count (do not mask 0 with the hint)
         poolStats.workerCount;
 
@@ -516,7 +543,7 @@ export function MinerApp() {
                 {eta ?? "—"}
               </div>
               <div className="mt-1 text-xs text-muted">
-                {t("cores")}: {workerHint}
+                {t("cores")}: {workerCount}
               </div>
             </StatCard>
           </>
@@ -940,6 +967,65 @@ export function MinerApp() {
             )}
           </>
         )}
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+            {t("perfMode")}
+          </label>
+          <p className="mb-2 text-xs text-muted">{t("perfModeHint")}</p>
+          <div className="mb-2 flex flex-wrap gap-2">
+            {workerPresets.map((n) => (
+              <button
+                key={n}
+                type="button"
+                disabled={mining}
+                onClick={() => setWorkerCount(n)}
+                className={`border-2 px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+                  workerCount === n
+                    ? "border-brand bg-brand text-zinc-950 shadow-[2px_2px_0_#000]"
+                    : "border-border text-muted hover:border-zinc-500 hover:text-zinc-200"
+                }`}
+                style={{ borderRadius: 0 }}
+                aria-pressed={workerCount === n}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={1}
+              max={workerMax}
+              step={1}
+              value={Math.min(workerCount, workerMax)}
+              disabled={mining}
+              onChange={(e) =>
+                setWorkerCount(clampWorkerCount(Number(e.target.value)))
+              }
+              className="w-full accent-[#f5a623] disabled:opacity-50"
+              aria-label={t("workersLabel")}
+            />
+            <span className="mono shrink-0 text-sm font-semibold text-brand">
+              {workerCount}
+            </span>
+          </div>
+          <p className="mt-1.5 text-xs text-muted">
+            {t("workersCores", {
+              cores:
+                typeof navigator !== "undefined"
+                  ? navigator.hardwareConcurrency || workerMax
+                  : workerMax,
+              max: workerMax,
+            })}
+            {workerDefault !== workerCount
+              ? ` · ${t("cores")}: ${workerDefault}`
+              : ""}
+          </p>
+          {workerLagWarn && (
+            <p className="mt-1.5 text-xs text-warning">{t("workersLagWarn")}</p>
+          )}
+        </div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-300">

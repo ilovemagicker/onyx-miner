@@ -23,10 +23,29 @@ type Listener = (s: MineStats) => void;
 const NONCE_SPACE = 0x100000000;
 const BATCH = 2500;
 
-export function suggestedWorkers(): number {
+/** Hard cap for concurrent mining workers. */
+export function maxWorkers(): number {
   const hc =
     typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
   return Math.max(1, Math.min(8, hc));
+}
+
+/**
+ * Conservative default: 1, or min(2, cores-1) when the device has spare cores.
+ * Prefer responsiveness over max hashrate until the user opts into performance mode.
+ */
+export function suggestedWorkers(): number {
+  const hc =
+    typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 4 : 4;
+  if (hc <= 1) return 1;
+  return Math.min(2, Math.max(1, hc - 1));
+}
+
+/** Clamp a user-selected worker count into [1, maxWorkers()]. */
+export function clampWorkerCount(n: number): number {
+  const max = maxWorkers();
+  if (!Number.isFinite(n)) return suggestedWorkers();
+  return Math.max(1, Math.min(max, Math.floor(n)));
 }
 
 export class MineController {
@@ -99,7 +118,7 @@ export class MineController {
     this.hashrate = 0;
     this.extranonce = 0;
 
-    const n = workerCount ?? suggestedWorkers();
+    const n = clampWorkerCount(workerCount ?? suggestedWorkers());
     this.spawnWorkers(n);
     this.rateTimer = setInterval(() => {
       const now = performance.now();

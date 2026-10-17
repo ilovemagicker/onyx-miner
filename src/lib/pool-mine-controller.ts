@@ -4,7 +4,7 @@ import { hexToBytes } from "./sha256";
 import { StratumClient, type StratumJob } from "./stratum-client";
 import type { PoolInfo } from "./pools";
 import type { StratumWorkerIn, StratumWorkerOut } from "@/workers/stratum.worker";
-import { suggestedWorkers } from "./mine-controller";
+import { clampWorkerCount, suggestedWorkers } from "./mine-controller";
 
 export type PoolMineStats = {
   hashrate: number;
@@ -94,7 +94,12 @@ export class PoolMineController {
     return this.running;
   }
 
-  async start(pool: PoolInfo, user: string, password?: string) {
+  async start(
+    pool: PoolInfo,
+    user: string,
+    password?: string,
+    workerCount?: number
+  ) {
     if (this.running) return;
     this.user = user.trim();
     this.algo = pool.algo;
@@ -119,10 +124,10 @@ export class PoolMineController {
     this.emit();
 
     // Spawn workers BEFORE connect so an early mining.notify can dispatch.
+    // Scrypt is heavy — soft-cap at 4 unless the user picked lower.
+    const requested = clampWorkerCount(workerCount ?? suggestedWorkers());
     const nWorkers =
-      this.algo === "scrypt"
-        ? Math.min(4, suggestedWorkers())
-        : suggestedWorkers();
+      this.algo === "scrypt" ? Math.min(4, requested) : requested;
     this.spawnWorkers(nWorkers);
     this.rateTimer = setInterval(() => {
       const now = performance.now();

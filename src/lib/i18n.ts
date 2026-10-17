@@ -134,6 +134,11 @@ const dict = {
     viewPoolStatusHint: "新分頁開啟礦池儀表板；有地址時盡量直達該地址狀態頁。",
     viewPoolStatusPaste: "開啟後請在礦池頁貼上你的地址搜尋。",
     poolDashboard: "礦池狀態",
+    perfMode: "性能模式",
+    perfModeHint: "同時運行幾個瀏覽器雜湊執行緒。執行緒越多算力越高，但可能讓分頁變卡。",
+    workersLabel: "執行緒數",
+    workersLagWarn: "可能導致頁面卡頓",
+    workersCores: "本機約 {cores} 核 · 上限 {max}",
   },
   en: {
     appName: "Online Solo Miner",
@@ -264,6 +269,11 @@ const dict = {
     viewPoolStatusHint: "Opens the pool dashboard in a new tab; deep-links to your address when filled.",
     viewPoolStatusPaste: "On the pool page, paste your address to search.",
     poolDashboard: "Pool status",
+    perfMode: "Performance",
+    perfModeHint: "How many browser hash threads to run. More threads raise hashrate but can freeze the tab.",
+    workersLabel: "Workers",
+    workersLagWarn: "May cause the page to lag",
+    workersCores: "About {cores} cores here · max {max}",
   },
 } as const;
 
