@@ -3,9 +3,9 @@ import { AppProviders } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Miner · Browser BTC Solo Demo — Onyx Labs",
+  title: "Miner · Browser Stratum Miner — Onyx Labs",
   description:
-    "Educational browser Bitcoin solo miner. Client-side double SHA-256. By Onyx Labs. / 瀏覽器端比特幣 solo 挖礦演示。",
+    "Browser BTC/BCH Stratum mining via Onyx proxy + local demo. By Onyx Labs. / 瀏覽器真實礦池挖礦與本地演示。",
   metadataBase: new URL("https://miner.onyxlab.dev"),
   icons: {
     icon: [

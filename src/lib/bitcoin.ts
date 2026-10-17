@@ -70,6 +70,17 @@ export function validateBtcAddress(addr: string): {
     return { ok: false, error: "checksum" };
   }
 
+  // BCH cashaddr (simplified): bitcoincash:q… / q… / p…
+  const cash = a.replace(/^bitcoincash:/i, "");
+  if (/^[qp][a-z0-9]{40,120}$/i.test(cash)) {
+    return { ok: true, kind: "bech32" };
+  }
+
+  // Pool logins like account.worker — allow alnum/._-
+  if (/^[A-Za-z0-9_.:-]{3,128}$/.test(a) && a.includes(".")) {
+    return { ok: true, kind: "bech32" };
+  }
+
   return { ok: false, error: "format" };
 }
 
