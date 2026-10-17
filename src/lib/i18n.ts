@@ -11,7 +11,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 const dict = {
   "zh-Hant": {
-    appName: "Miner",
+    appName: "Online Solo Miner",
     brandSub: "Onyx Labs",
     tagline: "瀏覽器 BTC／BCH 真實 Stratum 挖礦＋本地演示",
     language: "語言",
@@ -118,7 +118,7 @@ const dict = {
     poolAuthorizedToast: "礦池已授權",
   },
   en: {
-    appName: "Miner",
+    appName: "Online Solo Miner",
     brandSub: "Onyx Labs",
     tagline: "Browser BTC/BCH real Stratum mining + local demo",
     language: "Language",

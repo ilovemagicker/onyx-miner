@@ -165,7 +165,7 @@ async function connectXverse(): Promise<string[]> {
     try {
       const connectRes = await provider.request("wallet_connect", {
         addresses: ["payment"],
-        message: "Onyx Miner needs your BTC payment address for pool payouts.",
+        message: "Online Solo Miner needs your BTC payment address for pool payouts.",
       });
       const fromConnect = asAddressList(connectRes);
       if (fromConnect.length) return fromConnect;
@@ -175,7 +175,7 @@ async function connectXverse(): Promise<string[]> {
     try {
       const accounts = await provider.request("getAccounts", {
         purposes: ["payment"],
-        message: "Onyx Miner — read BTC payment address only (no signing).",
+        message: "Online Solo Miner — read BTC payment address only (no signing).",
       });
       const list = asAddressList(accounts);
       if (list.length) return list;
@@ -185,7 +185,7 @@ async function connectXverse(): Promise<string[]> {
     try {
       const addrs = await provider.request("getAddresses", {
         purposes: ["payment"],
-        message: "Onyx Miner — read BTC payment address only (no signing).",
+        message: "Online Solo Miner — read BTC payment address only (no signing).",
       });
       const list = asAddressList(addrs);
       if (list.length) return list;
@@ -197,7 +197,7 @@ async function connectXverse(): Promise<string[]> {
   if (typeof provider.connect === "function") {
     const res = await provider.connect({
       purposes: ["payment"],
-      message: "Onyx Miner — read BTC payment address only (no signing).",
+      message: "Online Solo Miner — read BTC payment address only (no signing).",
     });
     const list = asAddressList(res);
     if (list.length) return list;

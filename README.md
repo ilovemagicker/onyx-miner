@@ -1,6 +1,6 @@
-# Miner · Onyx Labs
+# Online Solo Miner · Onyx Labs
 
-Browser **Stratum** miner for BTC/BCH (SHA256d) plus a local educational demo.
+**Online Solo Miner** — browser Stratum mining for BTC/BCH (SHA256d) plus a local educational demo.
 
 - Live: https://miner.onyxlab.dev
 - Proxy: https://stratum.onyxlab.dev

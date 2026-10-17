@@ -18,7 +18,7 @@ const vt323 = VT323({
 });
 
 export const metadata: Metadata = {
-  title: "Miner · Browser Stratum Miner — Onyx Labs",
+  title: "Online Solo Miner · Browser Stratum — Onyx Labs",
   description:
     "Browser BTC/BCH Stratum mining via Onyx proxy + local demo. By Onyx Labs. / 瀏覽器真實礦池挖礦與本地演示。",
   metadataBase: new URL("https://miner.onyxlab.dev"),
