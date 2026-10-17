@@ -46,8 +46,8 @@ export function hashMeetsTargetBE(hashBE: Uint8Array, targetBE: Uint8Array): boo
 }
 
 /**
- * Build merkle root (display/internal) from stratum job parts.
- * Returns 32-byte digest in internal (sha256d) order — reverse for header LE field.
+ * Build merkle root from stratum job parts.
+ * Returns raw sha256d digest (same byte order Public Pool / NerdMiner put in the header).
  */
 export function merkleFromCoinbase(
   coinb1Hex: string,
@@ -92,9 +92,27 @@ export function parseU32Hex(hex: string): number {
 }
 
 /**
- * Assemble 80-byte header for a stratum job.
- * prevhashHex from stratum goes into the header as-is (already LE-word ordered).
- * merkleRoot internal digest is byte-reversed into the header.
+ * Stratum mining.notify prevhash is 4-byte word-swapped relative to the block
+ * header field. Undo that swap so the header matches what Public Pool rebuilds
+ * in MiningJob.buildHeaderBuffer (NerdMiner does the same).
+ */
+export function unswapStratumPrevhash(prevhashHex: string): Uint8Array {
+  const src = hexToBytes(padHex(prevhashHex, 64));
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i += 4) {
+    out[i] = src[i + 3];
+    out[i + 1] = src[i + 2];
+    out[i + 2] = src[i + 1];
+    out[i + 3] = src[i];
+  }
+  return out;
+}
+
+/**
+ * Assemble 80-byte header for a stratum job (Public Pool / NerdMiner compatible).
+ * - version / ntime / nbits: uint32 LE
+ * - prevhash: unswap stratum word order into header
+ * - merkleRoot: raw sha256d digest (do NOT byte-reverse)
  */
 export function assembleStratumHeader(opts: {
   versionHex: string;
@@ -105,16 +123,13 @@ export function assembleStratumHeader(opts: {
   nonce: number;
 }): Uint8Array {
   const header = new Uint8Array(80);
-  header.set(hexToBytes(padHex(opts.versionHex, 8)).reverse(), 0); // version LE
-  // Actually version/ntime/nbits from stratum are big-endian hex of the uint32 value;
-  // header stores them little-endian.
   const ver = parseU32Hex(opts.versionHex);
   const ntime = parseU32Hex(opts.ntimeHex);
   const nbits = parseU32Hex(opts.nbitsHex);
   const view = new DataView(header.buffer);
   view.setUint32(0, ver, true);
-  header.set(hexToBytes(padHex(opts.prevhashHex, 64)), 4);
-  header.set(reverseBytes(opts.merkleRoot), 36);
+  header.set(unswapStratumPrevhash(opts.prevhashHex), 4);
+  header.set(opts.merkleRoot, 36);
   view.setUint32(68, ntime, true);
   view.setUint32(72, nbits, true);
   view.setUint32(76, opts.nonce >>> 0, true);

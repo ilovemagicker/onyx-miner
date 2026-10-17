@@ -98,7 +98,7 @@ export class StratumClient {
             this.send({
               id: 1,
               method: "mining.subscribe",
-              params: ["onyx-miner/1.1"],
+              params: ["onyx-miner/1.2"],
             });
           } else if (msg.state === "tcp_closed") {
             this.connected = false;

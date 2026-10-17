@@ -90,8 +90,8 @@ export const POOLS: PoolInfo[] = [
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "0% · Solo · 最低難度約 1（忽略 suggest；瀏覽器需數小時才可能有 share）",
-    feeNote_en: "0% · Solo · min difficulty ~1 (ignores suggest; browser may take hours per share)",
+    feeNote_zh: "0% · Solo · 地板難度≈1；需 accepted share 才會在官網顯示（與 Docker 相同）",
+    feeNote_en: "0% · Solo · floor difficulty ≈1; address search needs accepted shares (same as Docker)",
     homepage: "https://web.public-pool.io/",
   },
   {
@@ -105,8 +105,8 @@ export const POOLS: PoolInfo[] = [
     userFormat_zh: "你的 BTC 地址（可加 .worker）",
     userFormat_en: "Your BTC address (optional .worker)",
     password: "x",
-    feeNote_zh: "0% PPLNS · 同樣最低難度約 1",
-    feeNote_en: "0% PPLNS · same min difficulty ~1",
+    feeNote_zh: "0% PPLNS · 同樣地板難度≈1；需 accepted share",
+    feeNote_en: "0% PPLNS · same floor ≈1; needs accepted shares",
     homepage: "https://web.public-pool.io/",
   },
   {

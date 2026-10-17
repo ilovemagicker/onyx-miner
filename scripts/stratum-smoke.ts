@@ -40,7 +40,7 @@ function onceJob(): Promise<JobPack> {
       const msg = JSON.parse(data.toString());
       if (msg.type === "status" && msg.state === "connected") {
         ws.send(
-          JSON.stringify({ id: 1, method: "mining.subscribe", params: ["onyx-miner/1.1"] }) + "\n"
+          JSON.stringify({ id: 1, method: "mining.subscribe", params: ["onyx-miner/1.2"] }) + "\n"
         );
       } else if (msg.id === 1 && msg.result) {
         en1 = msg.result[1];

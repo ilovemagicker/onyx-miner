@@ -26,5 +26,15 @@ export function buildStratumCredentials(opts: {
     return { user: ltc, password: `DOGE=${doge}` };
   }
 
-  return { user: addr, password: pass };
+  // Public Pool aggregates by address; appending .worker matches Docker/cpuminer
+  // habit and keeps multi-tab sessions distinct without changing payout address.
+  let user = addr;
+  if (
+    (opts.pool.id === "btc-public-solo" || opts.pool.id === "btc-public-pplns") &&
+    addr &&
+    !addr.includes(".")
+  ) {
+    user = `${addr}.onyx`;
+  }
+  return { user, password: pass };
 }
