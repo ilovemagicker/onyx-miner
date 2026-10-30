@@ -153,6 +153,8 @@ export function MinerApp() {
   const [netLoading, setNetLoading] = useState(true);
   const [mining, setMining] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [toastTone, setToastTone] = useState<"default" | "rare">("default");
+  const prevPossibleBlockAt = useRef(0);
   const [stratumUserShown, setStratumUserShown] = useState("");
   const [acceptedFlash, setAcceptedFlash] = useState(false);
   const [rejectedFlash, setRejectedFlash] = useState(false);
@@ -204,10 +206,11 @@ export function MinerApp() {
   const selectedPool: PoolInfo | undefined =
     pools.find((p) => p.id === poolId) ?? pools[0];
 
-  const showToast = useCallback((msg: string) => {
+  const showToast = useCallback((msg: string, opts?: { tone?: "default" | "rare"; ms?: number }) => {
     setToast(msg);
+    setToastTone(opts?.tone ?? "default");
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(null), 4500);
+    toastTimer.current = setTimeout(() => setToast(null), opts?.ms ?? 4500);
   }, []);
 
   const addrCheck = useMemo(() => {
@@ -345,6 +348,15 @@ export function MinerApp() {
     }
     prevAccepted.current = poolStats.accepted;
   }, [poolStats.accepted, mode]);
+
+  // Rare: Accepted share also met network nbits target
+  useEffect(() => {
+    if (mode !== "pool") return;
+    const hint = poolStats.possibleBlockHint;
+    if (!hint || hint.at <= prevPossibleBlockAt.current) return;
+    prevPossibleBlockAt.current = hint.at;
+    showToast(t("possibleBlockToast"), { tone: "rare", ms: 12000 });
+  }, [poolStats.possibleBlockHint, mode, showToast, t]);
 
   useEffect(() => {
     if (mode !== "pool") return;
@@ -662,6 +674,15 @@ export function MinerApp() {
         </p>
         {mode === "demo" && demoStats.found && (
           <p className="mt-2 text-xs text-success">{t("metTarget")}</p>
+        )}
+        {mode === "pool" && poolStats.possibleBlockHint && (
+          <div className="mt-3 border-2 border-success bg-success/10 px-3 py-2 text-sm text-success">
+            <p className="font-medium">{t("possibleBlockToast")}</p>
+            <p className="mt-1 text-xs opacity-90">{t("possibleBlockHint")}</p>
+            <p className="mono mt-1 break-all text-[10px] opacity-70">
+              {poolStats.possibleBlockHint.hashHex}
+            </p>
+          </div>
         )}
       </div>
 
@@ -1239,7 +1260,10 @@ export function MinerApp() {
       {/* Toast */}
       {toast && (
         <div
-          className="toast-bar fixed bottom-20 left-1/2 z-40 max-w-sm -translate-x-1/2 px-4 py-2.5 text-sm text-zinc-100 lg:bottom-8"
+          className={
+            "toast-bar fixed bottom-20 left-1/2 z-40 max-w-sm -translate-x-1/2 px-4 py-2.5 text-sm text-zinc-100 lg:bottom-8" +
+            (toastTone === "rare" ? " toast-bar--rare" : "")
+          }
           role="status"
         >
           {toast}

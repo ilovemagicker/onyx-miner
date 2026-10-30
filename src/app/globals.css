@@ -202,3 +202,9 @@ body {
   box-shadow: 3px 3px 0 #000;
   background: var(--color-surface-2);
 }
+
+.toast-bar--rare {
+  border-color: var(--color-success);
+  background: color-mix(in oklab, var(--color-success) 18%, var(--color-surface-2));
+  box-shadow: 3px 3px 0 var(--color-success);
+}

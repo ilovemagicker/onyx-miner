@@ -1,5 +1,5 @@
 import { compareHash } from "./bitcoin";
-import { formatExtranonce2 } from "./stratum-math";
+import { formatExtranonce2, shareMeetsNetworkTarget } from "./stratum-math";
 import { hexToBytes } from "./sha256";
 import { StratumClient, type StratumJob } from "./stratum-client";
 import type { PoolInfo } from "./pools";
@@ -21,6 +21,8 @@ export type PoolMineStats = {
   workerCount: number;
   lastShareHash?: string;
   lastError?: string;
+  /** Set when an Accepted share also meets job nbits network target (rare). */
+  possibleBlockHint?: { hashHex: string; at: number };
 };
 
 type Listener = (s: PoolMineStats) => void;
@@ -50,6 +52,9 @@ export class PoolMineController {
   private status = "idle";
   private lastShareHash?: string;
   private lastError?: string;
+  private possibleBlockHint?: { hashHex: string; at: number };
+  /** submit id → share hash + job nbits for post-accept network-target check */
+  private pendingShares = new Map<number, { hashHex: string; nbits: string }>();
   private windowHashes = 0;
   private windowStart = 0;
   private hashrate = 0;
@@ -87,6 +92,7 @@ export class PoolMineController {
       workerCount: this.workers.length,
       lastShareHash: this.lastShareHash,
       lastError: this.lastError,
+      possibleBlockHint: this.possibleBlockHint,
     };
   }
 
@@ -116,6 +122,8 @@ export class PoolMineController {
     this.jobEpoch = 0;
     this.lastError = undefined;
     this.lastShareHash = undefined;
+    this.possibleBlockHint = undefined;
+    this.pendingShares.clear();
     this.windowHashes = 0;
     this.windowStart = performance.now();
     this.hashrate = 0;
@@ -198,9 +206,21 @@ export class PoolMineController {
         this.dispatchRound({ abortPrevious: true });
         this.emit();
       },
-      onSubmitResult: (_id, accepted, error) => {
-        if (accepted) this.accepted += 1;
-        else {
+      onSubmitResult: (id, accepted, error) => {
+        const meta = this.pendingShares.get(id);
+        this.pendingShares.delete(id);
+        if (accepted) {
+          this.accepted += 1;
+          if (
+            meta &&
+            shareMeetsNetworkTarget(meta.hashHex, meta.nbits)
+          ) {
+            this.possibleBlockHint = {
+              hashHex: meta.hashHex,
+              at: Date.now(),
+            };
+          }
+        } else {
           this.rejected += 1;
           if (error) this.lastError = error;
         }
@@ -236,6 +256,7 @@ export class PoolMineController {
     this.running = false;
     this.status = "idle";
     this.job = null;
+    this.pendingShares.clear();
     this.jobEpoch += 1; // invalidate any in-flight worker messages
     this.abortWorkers();
     this.clearJobWaitWatch();
@@ -394,13 +415,22 @@ export class PoolMineController {
       this.submittedKeys.add(key);
       this.submitted += 1;
       this.lastShareHash = msg.hashHex;
-      this.client.submit({
+      const submitId = this.client.submit({
         user: this.user,
         jobId: msg.jobId,
         extranonce2: msg.extranonce2,
         ntime: msg.ntime,
         nonceHex: msg.nonceHex,
       });
+      this.pendingShares.set(submitId, {
+        hashHex: msg.hashHex,
+        nbits: this.job.nbits,
+      });
+      // Bound memory if pool never replies.
+      if (this.pendingShares.size > 200) {
+        const first = this.pendingShares.keys().next().value;
+        if (first !== undefined) this.pendingShares.delete(first);
+      }
       this.emit();
       return;
     }

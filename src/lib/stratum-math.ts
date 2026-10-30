@@ -1,5 +1,5 @@
 import { bytesToHex, hexToBytes, reverseBytes, sha256d } from "./sha256";
-import { compareHash } from "./bitcoin";
+import { bitsToTarget, compareHash } from "./bitcoin";
 
 /** Difficulty 1 target (Bitcoin): 0x00000000ffff0000... */
 export const DIFF1_TARGET = hexToBytes(
@@ -148,3 +148,28 @@ export function formatExtranonce2(n: number, size: number): string {
 }
 
 export { bytesToHex, reverseBytes, sha256d, hexToBytes };
+
+/**
+ * True if a share hash (32-byte big-endian / explorer display hex) meets the
+ * **network** target encoded in the job's nbits compact bits — not the pool
+ * share difficulty. Used after an Accepted share to hint a possible block;
+ * Stratum alone cannot confirm the pool actually mined one.
+ */
+export function shareMeetsNetworkTarget(
+  hashHexBE: string,
+  nbitsHex: string
+): boolean {
+  const cleaned = (hashHexBE || "").toLowerCase().replace(/^0x/, "").trim();
+  const nbitsClean = (nbitsHex || "").toLowerCase().replace(/^0x/, "").trim();
+  if (cleaned.length !== 64 || !/^[0-9a-f]+$/.test(cleaned)) return false;
+  if (!nbitsClean || !/^[0-9a-f]+$/.test(nbitsClean)) return false;
+  const bits = parseU32Hex(nbitsClean);
+  if (bits === 0) return false;
+  try {
+    const hash = hexToBytes(cleaned);
+    const target = bitsToTarget(bits);
+    return hashMeetsTargetBE(hash, target);
+  } catch {
+    return false;
+  }
+}
