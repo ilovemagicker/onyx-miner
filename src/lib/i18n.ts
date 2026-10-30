@@ -152,6 +152,9 @@ const dict = {
     rankEmpty: "尚無紀錄 — 在真實礦池模式拿到 Accepted 後會出現在全站排行。",
     rankYou: "你",
     rankDisclaimer: "僅統計站內 Accepted share 與峰值算力，不代表礦池收益或出塊。全站可見；shares ≠ 收益。",
+    characterLabel: "礦工",
+    characterMining: "挖礦中",
+    characterIdle: "待機",
   },
   en: {
     appName: "Online Solo Miner",
@@ -300,6 +303,9 @@ const dict = {
     rankEmpty: "No entries yet — Accepted shares in real pool mode will show on the global rank.",
     rankYou: "you",
     rankDisclaimer: "Counts on-site Accepted shares and peak hashrate only — not pool payouts or blocks. Visible to everyone; shares ≠ payouts.",
+    characterLabel: "Miner",
+    characterMining: "Mining",
+    characterIdle: "Idle",
   },
 } as const;
 

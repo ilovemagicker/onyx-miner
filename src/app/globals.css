@@ -208,3 +208,57 @@ body {
   background: color-mix(in oklab, var(--color-success) 18%, var(--color-surface-2));
   box-shadow: 3px 3px 0 var(--color-success);
 }
+
+/* 8-bit miner character stage */
+.miner-character {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 72%, rgba(245, 166, 35, 0.12), transparent 70%),
+    linear-gradient(180deg, #16161e 0%, #0b0b0d 55%, #08080a 100%);
+}
+
+.miner-character__stage {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 180px;
+  padding: 0.5rem 0.5rem 0;
+}
+
+.miner-character__sprite {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  user-select: none;
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .miner-character__sprite {
+    width: 192px;
+    height: 192px;
+  }
+  .miner-character__stage {
+    min-height: 210px;
+  }
+}
+
+.miner-character__caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-top: 2px solid var(--color-border);
+  background: var(--color-surface-2);
+  padding: 0.4rem 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .miner-character.mining-glow {
+    animation: none;
+  }
+}

@@ -34,6 +34,7 @@ import {
 } from "@/lib/pool-mine-controller";
 import { WalletConnectBar } from "@/components/wallet-connect";
 import { RankBoardPanel } from "@/components/rank-board";
+import { MinerCharacter } from "@/components/miner-character";
 import type { MessageKey } from "@/lib/i18n";
 import {
   emptyRankBoard,
@@ -622,7 +623,13 @@ export function MinerApp() {
   const hudPanel = (
     <section className="flex flex-col gap-3" aria-label={t("hud")}>
       <div className="pixel-label text-brand">{t("hud")}</div>
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-[minmax(160px,220px)_1fr] lg:grid-cols-1 xl:grid-cols-[minmax(180px,240px)_1fr] xl:items-stretch">
+        <MinerCharacter
+          mining={mining}
+          label={t("characterLabel")}
+          statusLabel={mining ? t("characterMining") : t("characterIdle")}
+        />
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 content-start">
         <StatCard label={t("hashrate")} accent={mining}>
           <div className="hud-num font-bold tracking-tight text-brand">
             {formatHashrate(liveHashrate)}
@@ -693,6 +700,7 @@ export function MinerApp() {
             </StatCard>
           </>
         )}
+        </div>
       </div>
 
       {mode === "pool" && (
