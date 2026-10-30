@@ -262,3 +262,18 @@ body {
     animation: none;
   }
 }
+
+/* destination anchors — WebView / deep-link alignment (P0; no bottom tab) */
+.dest-section,
+#mine,
+#rank,
+#settings,
+#about {
+  scroll-margin-top: 5.5rem;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .sticky-start-bar {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}

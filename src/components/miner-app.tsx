@@ -848,6 +848,33 @@ export function MinerApp() {
     </section>
   );
 
+  /* —— Mode segmented (Q1: shell + settings share one state; locked while mining) —— */
+  const modeSegmented = (
+    <div
+      className="inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm"
+      role="group"
+      aria-label={t("modeSegmentAria")}
+    >
+      {(["pool", "demo"] as Mode[]).map((m) => (
+        <button
+          key={m}
+          type="button"
+          disabled={mining}
+          onClick={() => setMode(m)}
+          className={`px-3 py-1.5 font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            mode === m
+              ? "bg-brand-soft text-zinc-950"
+              : "text-muted hover:text-zinc-200"
+          }`}
+          style={{ borderRadius: 0 }}
+          aria-pressed={mode === m}
+        >
+          {m === "pool" ? t("modePool") : t("modeDemo")}
+        </button>
+      ))}
+    </div>
+  );
+
   /* —— Start / Stop controls —— */
   const startStopControls = (
     <div className="space-y-2">
@@ -897,9 +924,30 @@ export function MinerApp() {
 
   /* —— SETUP panel —— */
   const setupPanel = (
-    <section className="flex flex-col gap-3" aria-label={t("setup")}>
+    <section
+      id="settings"
+      className="dest-section flex flex-col gap-3"
+      aria-label={t("setup")}
+    >
       <div className="pixel-label text-brand">{t("setup")}</div>
       <div className="pixel-panel space-y-4 p-3 sm:p-4">
+        {mining && (
+          <div
+            className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning"
+            role="status"
+          >
+            {t("settingsLocked")}
+          </div>
+        )}
+        <div>
+          <div className="mb-1.5 text-sm font-medium text-zinc-300">
+            {t("modeSegmentAria")}
+          </div>
+          {modeSegmented}
+          {mode === "demo" && (
+            <p className="mt-1.5 text-xs text-muted">{t("modeDemoHint")}</p>
+          )}
+        </div>
         {mode === "pool" && (
           <>
             <div>
@@ -1241,7 +1289,7 @@ export function MinerApp() {
   return (
     <div className="min-h-screen bg-canvas pb-24 lg:pb-16">
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:px-6">
-        {/* Top shell */}
+        {/* Top shell — brand · mode segmented (Q1) · status lamp · language */}
         <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center border-2 border-border bg-surface shadow-[2px_2px_0_#000]">
@@ -1256,7 +1304,7 @@ export function MinerApp() {
             <div>
               <div className="flex flex-wrap items-baseline gap-2">
                 <h1 className="pixel-title text-sm text-brand sm:text-base">
-                  {t("appName").toUpperCase()}
+                  MINER
                 </h1>
                 <span className="text-xs text-muted">{t("brandSub")}</span>
               </div>
@@ -1264,6 +1312,7 @@ export function MinerApp() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {modeSegmented}
             <div
               className="inline-flex items-center gap-2 border-2 border-border bg-surface-2 px-2.5 py-1.5 text-xs"
               style={{ borderRadius: 2 }}
@@ -1280,69 +1329,56 @@ export function MinerApp() {
           </div>
         </header>
 
-        {/* Mode + collapsible disclaimer */}
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm">
-            {(["pool", "demo"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                type="button"
-                disabled={mining}
-                onClick={() => setMode(m)}
-                className={`px-3 py-1.5 font-medium transition disabled:opacity-50 ${
-                  mode === m
-                    ? "bg-brand-soft text-zinc-950"
-                    : "text-muted hover:text-zinc-200"
-                }`}
-                style={{ borderRadius: 0 }}
-              >
-                {m === "pool" ? t("modePool") : t("modeDemo")}
-              </button>
-            ))}
-          </div>
-          {mode === "demo" && (
-            <span className="self-center text-xs text-muted">
-              {t("modeDemoHint")}
-            </span>
-          )}
-        </div>
-
-        <details className="mb-5 border-2 border-warning/40 bg-warning/5 open:bg-warning/10">
-          <summary className="cursor-pointer list-none px-3 py-2 text-sm text-warning marker:content-none [&::-webkit-details-marker]:hidden">
-            <span className="font-semibold">{t("disclaimerTitle")}</span>
-            <span className="mx-2 text-warning/60">·</span>
-            <span className="text-zinc-300">{t("disclaimerSummary")}</span>
-            <span className="ml-2 text-xs text-muted underline">
-              {t("disclaimerDetails")}
-            </span>
-          </summary>
-          <div className="border-t border-warning/30 px-3 pb-3 pt-2">
-            <p className="text-sm leading-relaxed text-zinc-300">
-              {t("disclaimer")}
-            </p>
-            <p className="mt-2 text-xs text-muted">{t("privacy")}</p>
-            <p className="mt-1 text-xs text-muted">{t("proxyNote")}</p>
-          </div>
-        </details>
-
-        {/* Dual column desktop / stacked mobile (HUD first on mobile) */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] lg:items-start">
+        {/* dest-mine: character + HUD + setup + sticky start (single-page) */}
+        <div
+          id="mine"
+          className="dest-section grid gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] lg:items-start"
+        >
           <div className="order-2 lg:order-1">{setupPanel}</div>
           <div className="order-1 lg:order-2">{hudPanel}</div>
         </div>
 
         <div className="mt-5">
-          <RankBoardPanel board={rankBoard} currentWallet={address} />
+          <RankBoardPanel
+            board={rankBoard}
+            currentWallet={address}
+            demoMode={mode === "demo"}
+          />
         </div>
 
-        <details className="mb-8 mt-6 pixel-panel p-4">
-          <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
-            {t("howItWorks")}
-          </summary>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-            {t("howBody")}
-          </p>
-        </details>
+        {/* dest-about: O2 collapsible disclaimer + how-it-works */}
+        <section
+          id="about"
+          className="dest-section mb-8 mt-6 space-y-4"
+          aria-label={t("aboutTitle")}
+        >
+          <div className="pixel-label text-brand">{t("aboutTitle")}</div>
+          <details className="border-2 border-warning/40 bg-warning/5 open:bg-warning/10">
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm text-warning marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="font-semibold">{t("disclaimerTitle")}</span>
+              <span className="mx-2 text-warning/60">·</span>
+              <span className="text-zinc-300">{t("disclaimerSummary")}</span>
+              <span className="ml-2 text-xs text-muted underline">
+                {t("disclaimerDetails")}
+              </span>
+            </summary>
+            <div className="border-t border-warning/30 px-3 pb-3 pt-2">
+              <p className="text-sm leading-relaxed text-zinc-300">
+                {t("disclaimer")}
+              </p>
+              <p className="mt-2 text-xs text-muted">{t("privacy")}</p>
+              <p className="mt-1 text-xs text-muted">{t("proxyNote")}</p>
+            </div>
+          </details>
+          <details className="pixel-panel p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
+              {t("howItWorks")}
+            </summary>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+              {t("howBody")}
+            </p>
+          </details>
+        </section>
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-border pt-6 text-xs text-muted">
           <span>{t("footer")}</span>
@@ -1357,8 +1393,8 @@ export function MinerApp() {
         </footer>
       </div>
 
-      {/* Sticky Start on mobile */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-border bg-canvas/95 p-3 backdrop-blur lg:hidden">
+      {/* Sticky Start on mobile — P0: no bottom tab (Q3=P1) */}
+      <div className="sticky-start-bar fixed inset-x-0 bottom-0 z-30 border-t-2 border-border bg-canvas/95 p-3 backdrop-blur lg:hidden">
         {startStopControls}
       </div>
 

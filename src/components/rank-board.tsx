@@ -14,9 +14,12 @@ import {
 export function RankBoardPanel({
   board,
   currentWallet,
+  demoMode = false,
 }: {
   board: RankBoardData;
   currentWallet: string;
+  /** When true, show S-rank-demo-view hint (totals still from real-pool Accepted). */
+  demoMode?: boolean;
 }) {
   const { t } = useI18n();
   const [sort, setSort] = useState<RankSort>("accepted");
@@ -24,11 +27,18 @@ export function RankBoardPanel({
   const highlight = walletRankKey(currentWallet);
 
   return (
-    <section className="flex flex-col gap-3" aria-label={t("rankTitle")}>
+    <section
+      id="rank"
+      className="dest-section flex flex-col gap-3"
+      aria-label={t("rankTitle")}
+    >
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <div className="pixel-label text-brand">{t("rankTitle")}</div>
           <p className="mt-1 text-xs text-muted">{t("rankHint")}</p>
+          {demoMode && (
+            <p className="mt-1 text-xs text-warning">{t("rankDemoHint")}</p>
+          )}
         </div>
         <div
           className="inline-flex border-2 border-border bg-surface-2 p-0.5 text-xs"
