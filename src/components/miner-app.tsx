@@ -33,7 +33,16 @@ import {
   type PoolMineStats,
 } from "@/lib/pool-mine-controller";
 import { WalletConnectBar } from "@/components/wallet-connect";
+import { RankBoardPanel } from "@/components/rank-board";
 import type { MessageKey } from "@/lib/i18n";
+import {
+  addAcceptedShares,
+  emptyRankBoard,
+  loadRankBoard,
+  saveRankBoard,
+  touchPeakHashrate,
+  type RankBoard as RankBoardData,
+} from "@/lib/rank";
 
 const ADDR_KEY = "onyx_miner_address";
 const MODE_KEY = "onyx_miner_mode";
@@ -186,6 +195,10 @@ export function MinerApp() {
     workerCount: 0,
   });
 
+  const [rankBoard, setRankBoard] = useState<RankBoardData>(() => emptyRankBoard());
+  const rankHashTick = useRef(0);
+  const prevAcceptedForRank = useRef(0);
+
   const demoRef = useRef<MineController | null>(null);
   const poolRef = useRef<PoolMineController | null>(null);
   const workerMax = useMemo(() => maxWorkers(), []);
@@ -337,7 +350,55 @@ export function MinerApp() {
     };
   }, []);
 
-  // Share flash + authorized toast
+  useEffect(() => {
+    setRankBoard(loadRankBoard());
+  }, []);
+
+  // Lifetime Accepted + peak hashrate → wallet-keyed local rank
+  useEffect(() => {
+    if (mode !== "pool") return;
+    const key = address.trim();
+    const next = poolStats.accepted;
+    // Session reset (controller start) — do not treat as negative
+    if (next < prevAcceptedForRank.current) {
+      prevAcceptedForRank.current = next;
+      return;
+    }
+    if (!key) {
+      prevAcceptedForRank.current = next;
+      return;
+    }
+    const prev = prevAcceptedForRank.current;
+    if (next > prev) {
+      const delta = next - prev;
+      setRankBoard((board) => {
+        const res = addAcceptedShares(board, key, delta);
+        if (!res) return board;
+        saveRankBoard(res.board);
+        return res.board;
+      });
+    }
+    prevAcceptedForRank.current = next;
+  }, [poolStats.accepted, mode, address]);
+
+  useEffect(() => {
+    if (mode !== "pool" || !mining) return;
+    const key = address.trim();
+    if (!key) return;
+    const hr = poolStats.hashrate;
+    if (!Number.isFinite(hr) || hr <= 0) return;
+    const now = Date.now();
+    if (now - rankHashTick.current < 2000) return;
+    rankHashTick.current = now;
+    setRankBoard((board) => {
+      const res = touchPeakHashrate(board, key, hr);
+      if (!res || res.board === board) return board;
+      saveRankBoard(res.board);
+      return res.board;
+    });
+  }, [poolStats.hashrate, mode, mining, address]);
+
+    // Share flash + authorized toast
   useEffect(() => {
     if (mode !== "pool") return;
     if (poolStats.accepted > prevAccepted.current) {
@@ -1228,6 +1289,10 @@ export function MinerApp() {
         <div className="grid gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] lg:items-start">
           <div className="order-2 lg:order-1">{setupPanel}</div>
           <div className="order-1 lg:order-2">{hudPanel}</div>
+        </div>
+
+        <div className="mt-5">
+          <RankBoardPanel board={rankBoard} currentWallet={address} />
         </div>
 
         <details className="mb-8 mt-6 pixel-panel p-4">
