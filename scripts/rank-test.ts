@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import {
   addAcceptedShares,
+  boardFromEntries,
   emptyRankBoard,
   parseRankBoard,
   shortenWallet,
   sortedRank,
   touchPeakHashrate,
+  upsertRankEntry,
   walletRankKey,
 } from "../src/lib/rank";
 
@@ -53,5 +55,18 @@ assert.equal(addAcceptedShares(board, "", 1), null);
 const round = parseRankBoard(JSON.parse(JSON.stringify(board)));
 assert.equal(round.entries["bc1qaaa"].accepted, 5);
 assert.equal(shortenWallet("bc1qaaabbbcccddd"), "bc1qaa…cddd");
+
+const fromList = boardFromEntries([
+  { wallet: "bc1qaaa", accepted: 5, peakHashrate: 1, updatedAt: 1 },
+]);
+assert.equal(fromList.entries["bc1qaaa"].accepted, 5);
+
+const up = upsertRankEntry(fromList, {
+  wallet: "bc1qaaa",
+  accepted: 9,
+  peakHashrate: 2,
+  updatedAt: 2,
+});
+assert.equal(up.entries["bc1qaaa"].accepted, 9);
 
 console.log("rank-test.ts: ok");

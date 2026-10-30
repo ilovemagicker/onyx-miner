@@ -1,11 +1,9 @@
 /**
- * Wallet-keyed local rank for Accepted shares + peak hashrate.
- * Matches existing miner prefs (localStorage). Same payout address
- * with different .worker suffixes aggregates on this browser.
+ * Wallet-keyed global rank helpers for Accepted shares + peak hashrate.
+ * Server stores the board (Supabase); these pure helpers shape UI / API.
+ * Same payout address with different .worker suffixes aggregates.
  * Does not imply pool payouts.
  */
-
-export const RANK_STORAGE_KEY = "onyx_miner_rank_v1";
 
 export type RankEntry = {
   wallet: string;
@@ -31,6 +29,15 @@ export function walletRankKey(raw: string): string {
 
 export function emptyRankBoard(): RankBoard {
   return { version: 1, entries: {} };
+}
+
+export function boardFromEntries(list: RankEntry[]): RankBoard {
+  const entries: Record<string, RankEntry> = {};
+  for (const e of list) {
+    if (!e?.wallet) continue;
+    entries[e.wallet] = e;
+  }
+  return { version: 1, entries };
 }
 
 export function parseRankBoard(raw: unknown): RankBoard {
@@ -59,24 +66,15 @@ export function parseRankBoard(raw: unknown): RankBoard {
   return { version: 1, entries };
 }
 
-export function loadRankBoard(): RankBoard {
-  if (typeof localStorage === "undefined") return emptyRankBoard();
-  try {
-    const raw = localStorage.getItem(RANK_STORAGE_KEY);
-    if (!raw) return emptyRankBoard();
-    return parseRankBoard(JSON.parse(raw));
-  } catch {
-    return emptyRankBoard();
-  }
-}
-
-export function saveRankBoard(board: RankBoard): void {
-  if (typeof localStorage === "undefined") return;
-  try {
-    localStorage.setItem(RANK_STORAGE_KEY, JSON.stringify(board));
-  } catch {
-    // quota / private mode — ignore
-  }
+/** Merge a single server entry into a local board snapshot. */
+export function upsertRankEntry(
+  board: RankBoard,
+  entry: RankEntry
+): RankBoard {
+  return {
+    version: 1,
+    entries: { ...board.entries, [entry.wallet]: entry },
+  };
 }
 
 /** Add Accepted share delta for a wallet key. Returns updated entry or null. */
@@ -155,4 +153,38 @@ export function sortedRank(
 export function shortenWallet(wallet: string, head = 6, tail = 4): string {
   if (wallet.length <= head + tail + 1) return wallet;
   return `${wallet.slice(0, head)}…${wallet.slice(-tail)}`;
+}
+
+/** Client: fetch global board from /api/rank */
+export async function fetchRankBoard(
+  sort: RankSort = "accepted",
+  limit = 20
+): Promise<RankBoard> {
+  const res = await fetch(`/api/rank?sort=${sort}&limit=${limit}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`rank_http_${res.status}`);
+  const data = (await res.json()) as {
+    board?: unknown;
+    error?: string;
+  };
+  if (data.error) throw new Error(data.error);
+  return parseRankBoard(data.board);
+}
+
+/** Client: report Accepted delta and/or peak hashrate */
+export async function reportRankProgress(input: {
+  wallet: string;
+  acceptedDelta?: number;
+  peakHashrate?: number;
+}): Promise<RankEntry | null> {
+  const res = await fetch("/api/rank", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 429) return null;
+  if (!res.ok) throw new Error(`rank_report_${res.status}`);
+  const data = (await res.json()) as { entry?: RankEntry | null };
+  return data.entry ?? null;
 }

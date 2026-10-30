@@ -36,11 +36,10 @@ import { WalletConnectBar } from "@/components/wallet-connect";
 import { RankBoardPanel } from "@/components/rank-board";
 import type { MessageKey } from "@/lib/i18n";
 import {
-  addAcceptedShares,
   emptyRankBoard,
-  loadRankBoard,
-  saveRankBoard,
-  touchPeakHashrate,
+  fetchRankBoard,
+  reportRankProgress,
+  upsertRankEntry,
   type RankBoard as RankBoardData,
 } from "@/lib/rank";
 
@@ -350,11 +349,28 @@ export function MinerApp() {
     };
   }, []);
 
+  // Global rank: poll server board so everyone sees the same list
   useEffect(() => {
-    setRankBoard(loadRankBoard());
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const board = await fetchRankBoard("accepted", 20);
+        if (!cancelled) setRankBoard(board);
+      } catch {
+        /* keep last snapshot */
+      }
+    };
+    void load();
+    const id = setInterval(() => {
+      void load();
+    }, 20_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
-  // Lifetime Accepted + peak hashrate → wallet-keyed local rank
+  // Lifetime Accepted → report to global rank (wallet-keyed)
   useEffect(() => {
     if (mode !== "pool") return;
     const key = address.trim();
@@ -371,12 +387,21 @@ export function MinerApp() {
     const prev = prevAcceptedForRank.current;
     if (next > prev) {
       const delta = next - prev;
-      setRankBoard((board) => {
-        const res = addAcceptedShares(board, key, delta);
-        if (!res) return board;
-        saveRankBoard(res.board);
-        return res.board;
-      });
+      prevAcceptedForRank.current = next;
+      void (async () => {
+        try {
+          const entry = await reportRankProgress({
+            wallet: key,
+            acceptedDelta: delta,
+          });
+          if (entry) {
+            setRankBoard((board) => upsertRankEntry(board, entry));
+          }
+        } catch {
+          /* ignore transient report errors */
+        }
+      })();
+      return;
     }
     prevAcceptedForRank.current = next;
   }, [poolStats.accepted, mode, address]);
@@ -388,14 +413,21 @@ export function MinerApp() {
     const hr = poolStats.hashrate;
     if (!Number.isFinite(hr) || hr <= 0) return;
     const now = Date.now();
-    if (now - rankHashTick.current < 2000) return;
+    if (now - rankHashTick.current < 5000) return;
     rankHashTick.current = now;
-    setRankBoard((board) => {
-      const res = touchPeakHashrate(board, key, hr);
-      if (!res || res.board === board) return board;
-      saveRankBoard(res.board);
-      return res.board;
-    });
+    void (async () => {
+      try {
+        const entry = await reportRankProgress({
+          wallet: key,
+          peakHashrate: hr,
+        });
+        if (entry) {
+          setRankBoard((board) => upsertRankEntry(board, entry));
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
   }, [poolStats.hashrate, mode, mining, address]);
 
     // Share flash + authorized toast

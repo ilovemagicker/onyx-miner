@@ -43,3 +43,9 @@ Cookie `miner_locale`; default zh-Hant; EN | 繁中
 - Pools: LiteSolo EU/US, MySoloPool, Molepool EU, NexusPool
 - DOGE uses LTC merge (AuxPoW); UI asks for LTC merge address
 - Proxy allowlist updated on stratum.onyxlab.dev
+
+## Global rank (2026-10-30 HKT)
+- **API**: `GET/POST /api/rank` (Supabase `onyx-wallet` → `miner_leaderboard`)
+- **RPC**: `report_miner_rank(wallet, accepted_delta, peak_hashrate)` — rate-limited per wallet
+- **Env**: linked Vercel store `supabase-onyx-wallet` (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, …)
+- Disclaimer in UI: shares ≠ pool payouts / blocks; visible to everyone
