@@ -51,6 +51,7 @@ const POOL_KEY = "onyx_miner_pool";
 const WORKERS_KEY = "onyx_miner_workers";
 
 type Mode = "demo" | "pool";
+type Layer = "none" | "rank" | "about" | "pools";
 
 function mapPoolStatus(
   status: string,
@@ -198,6 +199,14 @@ export function MinerApp() {
   const [rankBoard, setRankBoard] = useState<RankBoardData>(() => emptyRankBoard());
   const rankHashTick = useRef(0);
   const prevAcceptedForRank = useRef(0);
+
+  /** One-screen UX: overlays + collapsible panels (presentation only). */
+  const [layer, setLayer] = useState<Layer>("none");
+  const [bestExpanded, setBestExpanded] = useState(false);
+  const [networkExpanded, setNetworkExpanded] = useState(false);
+  const [mobileSetupOpen, setMobileSetupOpen] = useState(false);
+  const [setupMiningCollapsed, setSetupMiningCollapsed] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const demoRef = useRef<MineController | null>(null);
   const poolRef = useRef<PoolMineController | null>(null);
@@ -606,6 +615,45 @@ export function MinerApp() {
   const isConnecting =
     mode === "pool" && mining && poolStats.status === "connecting";
 
+  const openLayer = useCallback((next: Layer) => {
+    setLayer(next);
+    if (next === "rank") {
+      if (typeof window !== "undefined") window.location.hash = "rank";
+    } else if (next === "about") {
+      if (typeof window !== "undefined") window.location.hash = "about";
+    } else if (next === "pools") {
+      /* stay on mine; overlay only */
+    } else if (typeof window !== "undefined" && (window.location.hash === "#rank" || window.location.hash === "#about")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, []);
+
+  const closeLayer = useCallback(() => {
+    setLayer("none");
+    if (typeof window !== "undefined" && (window.location.hash === "#rank" || window.location.hash === "#about")) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+  }, []);
+
+  useEffect(() => {
+    const applyHash = () => {
+      const h = (typeof window !== "undefined" ? window.location.hash : "").replace(/^#/, "");
+      if (h === "rank") setLayer("rank");
+      else if (h === "about") setLayer("about");
+      else if (h === "settings") {
+        setMobileSetupOpen(true);
+        setSetupMiningCollapsed(false);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  useEffect(() => {
+    if (!mining) setSetupMiningCollapsed(false);
+  }, [mining]);
+
   const onCoinClick = (id: CoinId) => {
     const info = COINS.find((c) => c.id === id);
     if (!info) return;
@@ -621,20 +669,20 @@ export function MinerApp() {
 
   /* —— HUD panel —— */
   const hudPanel = (
-    <section className="flex flex-col gap-3" aria-label={t("hud")}>
+    <section className="flex min-h-0 flex-col gap-2 lg:overflow-y-auto" aria-label={t("hud")}>
       <div className="pixel-label text-brand">{t("hud")}</div>
-      <div className="grid gap-3 sm:grid-cols-[minmax(160px,220px)_1fr] lg:grid-cols-1 xl:grid-cols-[minmax(180px,240px)_1fr] xl:items-stretch">
+      <div className="grid gap-3 sm:grid-cols-[minmax(140px,200px)_1fr] lg:grid-cols-[minmax(160px,200px)_1fr] lg:items-start">
         <MinerCharacter
           mining={mining}
           label={t("characterLabel")}
           statusLabel={mining ? t("characterMining") : t("characterIdle")}
         />
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3 content-start">
+        <div className="grid grid-cols-3 gap-2 content-start sm:gap-3">
         <StatCard label={t("hashrate")} accent={mining}>
-          <div className="hud-num font-bold tracking-tight text-brand">
+          <div className="hud-num text-base font-bold tracking-tight text-brand sm:text-lg">
             {formatHashrate(liveHashrate)}
           </div>
-          <div className="mt-1 text-xs text-muted">
+          <div className="mt-0.5 truncate text-[10px] text-muted sm:text-xs">
             {statusUi.label}
             {" · "}
             {liveWorkers} {t("workers").toLowerCase()}
@@ -643,18 +691,18 @@ export function MinerApp() {
         {mode === "demo" ? (
           <>
             <StatCard label={t("hashesTried")}>
-              <div className="hud-num font-semibold">
+              <div className="hud-num text-base font-semibold sm:text-lg">
                 {formatNumber(liveHashes)}
               </div>
-              <div className="mt-1 text-xs text-muted">
+              <div className="mt-0.5 text-[10px] text-muted sm:text-xs">
                 {t("extranonce")}: {demoStats.extranonce}
               </div>
             </StatCard>
             <StatCard label={t("timeToBlock")}>
-              <div className="text-xl font-semibold sm:text-2xl">
+              <div className="text-base font-semibold sm:text-lg">
                 {eta ?? "—"}
               </div>
-              <div className="mt-1 text-xs text-muted">
+              <div className="mt-0.5 text-[10px] text-muted sm:text-xs">
                 {t("cores")}: {workerCount}
               </div>
             </StatCard>
@@ -665,10 +713,10 @@ export function MinerApp() {
               label={t("sharesAccepted")}
               flash={acceptedFlash ? "ok" : rejectedFlash ? "danger" : null}
             >
-              <div className="hud-num font-semibold text-success">
+              <div className="hud-num text-base font-semibold text-success sm:text-lg">
                 {poolStats.accepted}
               </div>
-              <div className="mt-1 text-xs text-muted">
+              <div className="mt-0.5 truncate text-[10px] text-muted sm:text-xs">
                 {t("sharesRejected")}:{" "}
                 <span className={rejectedFlash ? "text-danger" : ""}>
                   {poolStats.rejected}
@@ -681,7 +729,7 @@ export function MinerApp() {
                   </>
                 )}
               </div>
-              <div className="mt-1 text-xs text-warning">
+              <div className="mt-0.5 truncate text-[10px] text-warning sm:text-xs">
                 {t("etaFirstShare")}:{" "}
                 {etaFirstShareLabel(
                   liveHashrate,
@@ -691,10 +739,10 @@ export function MinerApp() {
               </div>
             </StatCard>
             <StatCard label={t("shareDiff")}>
-              <div className="hud-num font-semibold">
+              <div className="hud-num text-base font-semibold sm:text-lg">
                 {poolStats.difficulty}
               </div>
-              <div className="mt-1 text-xs text-muted">
+              <div className="mt-0.5 truncate text-[10px] text-muted sm:text-xs">
                 {t("hashesTried")}: {formatNumber(liveHashes)}
               </div>
             </StatCard>
@@ -704,7 +752,7 @@ export function MinerApp() {
       </div>
 
       {mode === "pool" && (
-        <div className="pixel-panel grid gap-2 p-3 text-sm sm:grid-cols-3">
+        <div className="pixel-panel grid shrink-0 gap-2 p-2 text-sm sm:grid-cols-3 sm:p-3">
           <div>
             <div className="text-xs text-muted">{t("poolStatus")}</div>
             <div className="flex items-center gap-2 text-zinc-200">
@@ -726,20 +774,15 @@ export function MinerApp() {
             </div>
           </div>
           {poolStats.lastError && (
-            <div className="sm:col-span-3 text-xs text-danger">
+            <div className="sm:col-span-3 truncate text-xs text-danger">
               {poolStats.lastError}
             </div>
           )}
           {mining &&
             (poolStats.status === "waiting_job" ||
               (poolStats.status === "authorized" && poolStats.jobs === 0)) && (
-              <div className="sm:col-span-3 text-xs text-amber-400">
+              <div className="sm:col-span-3 truncate text-xs text-amber-400">
                 {t("waitingJobHint")}
-              </div>
-            )}
-          {mining && (
-              <div className="sm:col-span-3 text-xs text-muted">
-                {t("poolSearchNote")}
               </div>
             )}
           {showPoolStatusLink && poolStatusHref && (
@@ -748,16 +791,11 @@ export function MinerApp() {
                 href={poolStatusHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="pixel-btn inline-flex w-fit items-center gap-2 border-2 border-brand bg-brand/15 px-3 py-2 text-sm font-semibold text-brand hover:bg-brand hover:text-zinc-950"
+                className="pixel-btn inline-flex w-fit items-center gap-2 border-2 border-brand bg-brand/15 px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand hover:text-zinc-950"
               >
                 {t("viewPoolStatus")}
                 <span aria-hidden>↗</span>
               </a>
-              <p className="text-xs text-muted">
-                {poolStatusDeepLinked
-                  ? t("viewPoolStatusHint")
-                  : t("viewPoolStatusPaste")}
-              </p>
             </div>
           )}
           {mining && poolStats.workerCount === 0 && poolStats.status === "mining" && (
@@ -768,87 +806,147 @@ export function MinerApp() {
         </div>
       )}
 
-      <div className="pixel-panel p-3 sm:p-4">
-        <div className="pixel-label mb-2">{t("bestHash")}</div>
-        <p className="mono break-all text-sm leading-relaxed text-brand">
-          {liveBest}
-        </p>
-        {mode === "demo" && demoStats.found && (
-          <p className="mt-2 text-xs text-success">{t("metTarget")}</p>
-        )}
-        {mode === "pool" && poolStats.possibleBlockHint && (
-          <div className="mt-3 border-2 border-success bg-success/10 px-3 py-2 text-sm text-success">
-            <p className="font-medium">{t("possibleBlockToast")}</p>
-            <p className="mt-1 text-xs opacity-90">{t("possibleBlockHint")}</p>
-            <p className="mono mt-1 break-all text-[10px] opacity-70">
-              {poolStats.possibleBlockHint.hashHex}
+      {/* OS-4: Best hash collapsed by default */}
+      <div className="pixel-panel shrink-0 p-2 sm:p-3">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 text-left"
+          onClick={() => setBestExpanded((v) => !v)}
+          aria-expanded={bestExpanded}
+        >
+          <span className="pixel-label text-brand">{t("bestHash")}</span>
+          <span className="mono min-w-0 flex-1 truncate text-xs text-brand">
+            {liveBest}
+          </span>
+          <span className="shrink-0 text-xs text-muted">
+            {bestExpanded ? t("collapseLess") : t("expandMore")} ▸
+          </span>
+        </button>
+        {bestExpanded && (
+          <div className="mt-2 border-t border-border/60 pt-2">
+            <p className="mono break-all text-sm leading-relaxed text-brand">
+              {liveBest}
             </p>
+            {mode === "demo" && demoStats.found && (
+              <p className="mt-2 text-xs text-success">{t("metTarget")}</p>
+            )}
+            {mode === "pool" && poolStats.possibleBlockHint && (
+              <div className="mt-3 border-2 border-success bg-success/10 px-3 py-2 text-sm text-success">
+                <p className="font-medium">{t("possibleBlockToast")}</p>
+                <p className="mt-1 text-xs opacity-90">{t("possibleBlockHint")}</p>
+                <p className="mono mt-1 break-all text-[10px] opacity-70">
+                  {poolStats.possibleBlockHint.hashHex}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {highDiff && (
-        <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
+        <div className="shrink-0 border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("highDiffWarn")}
-          <div className="mt-1 text-xs opacity-80">
-            {t("buildStamp")}: pool-status-r1
-            {stratumUserShown ? ` · ${t("stratumUser")}: ${stratumUserShown}` : ""}
-          </div>
         </div>
       )}
       {mode === "pool" && scryptCoin && (
-        <div className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
+        <div className="shrink-0 border-2 border-warning/50 bg-warning/10 px-3 py-2 text-sm text-warning">
           {t("scryptSlowWarn")}
         </div>
       )}
 
+      {/* OS-4: demo network card collapsed */}
       {mode === "demo" && (
-        <div className="pixel-panel p-3 sm:p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="pixel-panel shrink-0 p-2 sm:p-3">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 text-left"
+            onClick={() => setNetworkExpanded((v) => !v)}
+            aria-expanded={networkExpanded}
+          >
             <h2 className="text-sm font-semibold text-zinc-200">
               {t("network")}
             </h2>
-            {netLoading && (
-              <span className="text-xs text-muted">{t("loadingNetwork")}</span>
-            )}
-          </div>
-          {netError && (
-            <p className="mb-3 text-sm text-danger">
-              {t("networkError")}: {netError}
-            </p>
+            <span className="text-xs text-muted">
+              {netLoading
+                ? t("loadingNetwork")
+                : network
+                  ? `${formatNumber(network.height)} · ${networkExpanded ? t("collapseLess") : t("expandMore")}`
+                  : t("expandMore")}{" "}
+              ▸
+            </span>
+          </button>
+          {networkExpanded && (
+            <div className="mt-2 border-t border-border/60 pt-2">
+              {netError && (
+                <p className="mb-3 text-sm text-danger">
+                  {t("networkError")}: {netError}
+                </p>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs text-muted">{t("height")}</div>
+                  <div className="mono text-lg font-medium">
+                    {network ? formatNumber(network.height) : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted">{t("difficulty")}</div>
+                  <div className="mono text-lg font-medium">
+                    {network ? network.difficulty.toExponential(4) : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted">{t("target")}</div>
+                  <div className="mono text-sm">
+                    {network ? `0x${network.bitsHex}` : "—"}
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-muted">{t("tipHash")}</div>
+                  <div className="mono truncate text-sm text-zinc-300">
+                    {network?.tipHash ?? "—"}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="text-xs text-muted">{t("height")}</div>
-              <div className="mono text-lg font-medium">
-                {network ? formatNumber(network.height) : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted">{t("difficulty")}</div>
-              <div className="mono text-lg font-medium">
-                {network ? network.difficulty.toExponential(4) : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-muted">{t("target")}</div>
-              <div className="mono text-sm">
-                {network ? `0x${network.bitsHex}` : "—"}
-              </div>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs text-muted">{t("tipHash")}</div>
-              <div className="mono truncate text-sm text-zinc-300">
-                {network?.tipHash ?? "—"}
-              </div>
-            </div>
-          </div>
         </div>
       )}
+
+      {/* Desktop / shared shortcuts under HUD */}
+      <div className="mt-auto flex flex-wrap gap-2 pt-1 text-xs">
+        <button
+          type="button"
+          className="text-brand underline-offset-2 hover:underline"
+          onClick={() => openLayer("rank")}
+        >
+          {t("shortcutRank")}
+        </button>
+        <span className="text-muted">·</span>
+        <button
+          type="button"
+          className="text-brand underline-offset-2 hover:underline"
+          onClick={() => openLayer("about")}
+        >
+          {t("shortcutAbout")}
+        </button>
+        {mode === "pool" && (
+          <>
+            <span className="text-muted">·</span>
+            <button
+              type="button"
+              className="text-brand underline-offset-2 hover:underline"
+              onClick={() => openLayer("pools")}
+            >
+              {t("shortcutPools")}
+            </button>
+          </>
+        )}
+      </div>
     </section>
   );
 
-  /* —— Mode segmented (Q1: shell + settings share one state; locked while mining) —— */
+  /* —— Mode segmented (Q1: shell; locked while mining) —— */
   const modeSegmented = (
     <div
       className="inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm"
@@ -922,377 +1020,438 @@ export function MinerApp() {
     </div>
   );
 
-  /* —— SETUP panel —— */
-  const setupPanel = (
-    <section
-      id="settings"
-      className="dest-section flex flex-col gap-3"
-      aria-label={t("setup")}
-    >
-      <div className="pixel-label text-brand">{t("setup")}</div>
-      <div className="pixel-panel space-y-4 p-3 sm:p-4">
-        {mining && (
-          <div
-            className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning"
-            role="status"
+  const poolKindLabel =
+    selectedPool?.kind === "solo"
+      ? t("kindSolo")
+      : selectedPool
+        ? t("kindPool")
+        : "—";
+
+  const setupSummaryLine = [
+    mode === "pool" ? coin : t("modeDemo"),
+    mode === "pool" && selectedPool
+      ? `${selectedPool.name} · ${poolKindLabel}`
+      : null,
+    address.trim()
+      ? `${address.trim().slice(0, 8)}…`
+      : null,
+    `${workerCount}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  /* —— Pool picker list (moved into layer — OS-2) —— */
+  const poolPickerBody = mode === "pool" && coinInfo.status === "supported" && (
+    <div className="space-y-3">
+      <div className="inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm">
+        {(
+          [
+            ["solo", "poolKindSolo"],
+            ["pool", "poolKindShared"],
+          ] as const
+        ).map(([k, labelKey]) => (
+          <button
+            key={k}
+            type="button"
+            disabled={mining}
+            onClick={() => {
+              setPoolKind(k);
+              const all = poolsForCoin(coin);
+              const list = all.filter((p) => p.kind === k);
+              const preferred =
+                k === "solo"
+                  ? list.find((p) => p.id === "btc-nerdminers-org") ?? list[0]
+                  : list.find((p) => p.id === "btc-public-pplns") ?? list[0];
+              if (preferred) setPoolId(preferred.id);
+            }}
+            className={`px-3 py-1.5 font-medium transition disabled:opacity-50 ${
+              poolKind === k
+                ? "bg-brand-soft text-zinc-950"
+                : "text-muted hover:text-zinc-200"
+            }`}
+            style={{ borderRadius: 0 }}
+            aria-pressed={poolKind === k}
           >
-            {t("settingsLocked")}
-          </div>
-        )}
-        <div>
-          <div className="mb-1.5 text-sm font-medium text-zinc-300">
-            {t("modeSegmentAria")}
-          </div>
-          {modeSegmented}
-          {mode === "demo" && (
-            <p className="mt-1.5 text-xs text-muted">{t("modeDemoHint")}</p>
-          )}
+            {t(labelKey)}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted">
+        {poolKind === "solo" ? t("poolKindSoloHint") : t("poolKindSharedHint")}
+      </p>
+      <div className="grid gap-2">
+        {pools.map((p) => {
+          const sel = selectedPool?.id === p.id;
+          const statusHref = resolvePoolStatusUrl(p, address);
+          return (
+            <div
+              key={p.id}
+              className={`border-2 transition ${
+                sel
+                  ? "border-brand shadow-[inset_0_0_0_1px_#f5a623]"
+                  : "border-border hover:border-zinc-500"
+              }`}
+              style={{ borderRadius: 0 }}
+            >
+              <button
+                type="button"
+                disabled={mining}
+                onClick={() => {
+                  setPoolId(p.id);
+                  closeLayer();
+                }}
+                className="w-full p-3 text-left text-sm disabled:opacity-50"
+                style={{ borderRadius: 0 }}
+              >
+                <div className="font-medium text-zinc-100">
+                  {p.name}{" "}
+                  <span className="ml-1 border border-border px-1 text-[10px] uppercase text-btc">
+                    {p.kind === "solo" ? t("kindSolo") : t("kindPool")}
+                  </span>
+                </div>
+                <div className="mono mt-1 text-xs text-muted">
+                  {p.host}:{p.port}
+                </div>
+                <div className="mt-1 text-xs text-muted">
+                  {locale === "en" ? p.feeNote_en : p.feeNote_zh}
+                </div>
+              </button>
+              {statusHref ? (
+                <div className="border-t border-border/60 px-3 pb-2.5 pt-1">
+                  <a
+                    href={statusHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-brand hover:underline"
+                  >
+                    {t("poolDashboard")} ↗
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  /* —— SETUP body fields (shared; compressed — OS-2) —— */
+  const setupFields = (
+    <div className="space-y-3">
+      {mining && (
+        <div
+          className="border-2 border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning"
+          role="status"
+        >
+          {t("settingsLocked")}
         </div>
-        {mode === "pool" && (
-          <>
+      )}
+
+      {mode === "pool" && (
+        <>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+              {t("coin")}
+            </label>
+            <div className="mb-1 flex flex-wrap gap-2">
+              {COINS.map((c) => {
+                const locked = c.status !== "supported";
+                const selected = coin === c.id && !locked;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    disabled={mining}
+                    onClick={() => onCoinClick(c.id)}
+                    className={`border-2 px-2.5 py-1 text-sm font-medium transition disabled:opacity-50 ${
+                      locked
+                        ? "border-border/60 bg-surface-2 text-zinc-500"
+                        : selected
+                          ? "border-brand bg-brand text-zinc-950 shadow-[2px_2px_0_#000]"
+                          : "border-border text-muted hover:border-zinc-500 hover:text-zinc-200"
+                    }`}
+                    style={{ borderRadius: 0 }}
+                    aria-pressed={selected}
+                    title={
+                      locked
+                        ? t("coinAlgoBlocked")
+                        : locale === "en"
+                          ? c.note_en
+                          : c.note_zh
+                    }
+                  >
+                    {locked && (
+                      <span className="mr-1 inline-flex align-middle">
+                        <LockIcon />
+                      </span>
+                    )}
+                    {c.id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {coinInfo.status === "supported" ? (
             <div>
               <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-                {t("coin")}
+                {t("poolCurrent")}
               </label>
-              <div className="mb-2 flex flex-wrap gap-2">
-                {COINS.map((c) => {
-                  const locked = c.status !== "supported";
-                  const selected = coin === c.id && !locked;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      disabled={mining}
-                      onClick={() => onCoinClick(c.id)}
-                      className={`border-2 px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
-                        locked
-                          ? "border-border/60 bg-surface-2 text-zinc-500"
-                          : selected
-                            ? "border-brand bg-brand text-zinc-950 shadow-[2px_2px_0_#000]"
-                            : "border-border text-muted hover:border-zinc-500 hover:text-zinc-200"
-                      }`}
-                      style={{ borderRadius: 0 }}
-                      aria-pressed={selected}
-                      title={
-                        locked
-                          ? t("coinAlgoBlocked")
-                          : locale === "en"
-                            ? c.note_en
-                            : c.note_zh
-                      }
-                    >
-                      {locked && (
-                        <span className="mr-1.5 inline-flex align-middle">
-                          <LockIcon />
-                        </span>
-                      )}
-                      {c.id}
-                    </button>
-                  );
-                })}
-              </div>
-              {coinInfo.status === "supported" && (
-                <p className="text-xs text-muted">
-                  {locale === "en" ? coinInfo.note_en : coinInfo.note_zh} ·{" "}
-                  {coinInfo.algo}
+              <button
+                type="button"
+                disabled={mining}
+                onClick={() => openLayer("pools")}
+                className="flex w-full items-center justify-between gap-2 border-2 border-border bg-surface-2 px-3 py-2.5 text-left text-sm transition hover:border-brand disabled:opacity-50"
+                style={{ borderRadius: 0 }}
+              >
+                <span className="min-w-0">
+                  <span className="font-medium text-zinc-100">
+                    {selectedPool?.name ?? t("selectPool")}
+                  </span>
+                  <span className="ml-2 border border-border px-1 text-[10px] uppercase text-btc">
+                    {poolKindLabel}
+                  </span>
+                  {selectedPool && (
+                    <span className="mono mt-0.5 block truncate text-xs text-muted">
+                      {selectedPool.host}:{selectedPool.port}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-xs text-brand">
+                  {t("changePool")} ▾
+                </span>
+              </button>
+              {selectedPool && (
+                <p className="mt-1.5 truncate text-xs text-muted">
+                  {t("poolFee")}:{" "}
+                  {locale === "en"
+                    ? selectedPool.userFormat_en
+                    : selectedPool.userFormat_zh}
                 </p>
               )}
             </div>
-
-            {coinInfo.status === "supported" ? (
-              <>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-                    {t("pool")}
-                  </label>
-                  <div className="mb-2 inline-flex border-2 border-border bg-surface-2 p-0.5 text-sm">
-                    {(
-                      [
-                        ["solo", "poolKindSolo"],
-                        ["pool", "poolKindShared"],
-                      ] as const
-                    ).map(([k, labelKey]) => (
-                      <button
-                        key={k}
-                        type="button"
-                        disabled={mining}
-                        onClick={() => {
-                          setPoolKind(k);
-                          const all = poolsForCoin(coin);
-                          const list = all.filter((p) => p.kind === k);
-                          const preferred =
-                            k === "solo"
-                              ? list.find((p) => p.id === "btc-nerdminers-org") ??
-                                list[0]
-                              : list.find((p) => p.id === "btc-public-pplns") ??
-                                list[0];
-                          if (preferred) setPoolId(preferred.id);
-                        }}
-                        className={`px-3 py-1.5 font-medium transition disabled:opacity-50 ${
-                          poolKind === k
-                            ? "bg-brand-soft text-zinc-950"
-                            : "text-muted hover:text-zinc-200"
-                        }`}
-                        style={{ borderRadius: 0 }}
-                        aria-pressed={poolKind === k}
-                      >
-                        {t(labelKey)}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mb-2 text-xs text-muted">
-                    {poolKind === "solo"
-                      ? t("poolKindSoloHint")
-                      : t("poolKindSharedHint")}
-                  </p>
-                  <div className="mb-2 grid gap-2 sm:grid-cols-1">
-                    {pools.map((p) => {
-                      const sel = selectedPool?.id === p.id;
-                      const statusHref = resolvePoolStatusUrl(p, address);
-                      return (
-                        <div
-                          key={p.id}
-                          className={`border-2 transition ${
-                            sel
-                              ? "border-brand shadow-[inset_0_0_0_1px_#f5a623]"
-                              : "border-border hover:border-zinc-500"
-                          }`}
-                          style={{ borderRadius: 0 }}
-                        >
-                          <button
-                            type="button"
-                            disabled={mining}
-                            onClick={() => setPoolId(p.id)}
-                            className="w-full p-3 text-left text-sm disabled:opacity-50"
-                            style={{ borderRadius: 0 }}
-                          >
-                            <div className="font-medium text-zinc-100">
-                              {p.name}{" "}
-                              <span className="ml-1 border border-border px-1 text-[10px] uppercase text-btc">
-                                {p.kind === "solo"
-                                  ? t("kindSolo")
-                                  : t("kindPool")}
-                              </span>
-                            </div>
-                            <div className="mono mt-1 text-xs text-muted">
-                              {p.host}:{p.port}
-                            </div>
-                            <div className="mt-1 text-xs text-muted">
-                              {locale === "en" ? p.feeNote_en : p.feeNote_zh}
-                            </div>
-                          </button>
-                          {statusHref ? (
-                            <div className="border-t border-border/60 px-3 pb-2.5 pt-1">
-                              <a
-                                href={statusHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-medium text-brand hover:underline"
-                              >
-                                {t("poolDashboard")} ↗
-                              </a>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {selectedPool && (
-                    <p className="text-xs text-muted">
-                      {t("poolFee")}:{" "}
-                      {locale === "en"
-                        ? selectedPool.userFormat_en
-                        : selectedPool.userFormat_zh}
-                      {poolStatusHref ? (
-                        <>
-                          {" · "}
-                          <a
-                            href={poolStatusHref}
-                            className="font-medium text-brand hover:underline"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {t("viewPoolStatus")} ↗
-                          </a>
-                        </>
-                      ) : selectedPool.homepage ? (
-                        <>
-                          {" · "}
-                          <a
-                            href={selectedPool.homepage}
-                            className="text-brand hover:underline"
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            info
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-warning">{t("coinBlocked")}</p>
-            )}
-          </>
-        )}
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-            {t("perfMode")}
-          </label>
-          <p className="mb-2 text-xs text-muted">{t("perfModeHint")}</p>
-          <div className="mb-2 flex flex-wrap gap-2">
-            {workerPresets.map((n) => (
-              <button
-                key={n}
-                type="button"
-                disabled={mining}
-                onClick={() => setWorkerCount(n)}
-                className={`border-2 px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
-                  workerCount === n
-                    ? "border-brand bg-brand text-zinc-950 shadow-[2px_2px_0_#000]"
-                    : "border-border text-muted hover:border-zinc-500 hover:text-zinc-200"
-                }`}
-                style={{ borderRadius: 0 }}
-                aria-pressed={workerCount === n}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={1}
-              max={workerMax}
-              step={1}
-              value={Math.min(workerCount, workerMax)}
-              disabled={mining}
-              onChange={(e) =>
-                setWorkerCount(clampWorkerCount(Number(e.target.value)))
-              }
-              className="w-full accent-[#f5a623] disabled:opacity-50"
-              aria-label={t("workersLabel")}
-            />
-            <span className="mono shrink-0 text-sm font-semibold text-brand">
-              {workerCount}
-            </span>
-          </div>
-          <p className="mt-1.5 text-xs text-muted">
-            {t("workersCores", {
-              cores:
-                typeof navigator !== "undefined"
-                  ? navigator.hardwareConcurrency || workerMax
-                  : workerMax,
-              max: workerMax,
-            })}
-            {workerDefault !== workerCount
-              ? ` · ${t("cores")}: ${workerDefault}`
-              : ""}
-          </p>
-          {workerLagWarn && (
-            <p className="mt-1.5 text-xs text-warning">{t("workersLagWarn")}</p>
+          ) : (
+            <p className="text-sm text-warning">{t("coinBlocked")}</p>
           )}
-        </div>
+        </>
+      )}
 
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+          {t("addressLabel")}
+        </label>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => {
+            setAddress(e.target.value);
+            setAddrTouched(true);
+          }}
+          placeholder={t("addressPlaceholder")}
+          spellCheck={false}
+          autoComplete="off"
+          disabled={mining}
+          className={inputCls}
+          style={{ borderRadius: 0 }}
+        />
+        <WalletConnectBar
+          coin={coin}
+          mining={mining}
+          address={address}
+          onAddress={(addr) => {
+            setAddress(addr);
+            setAddrTouched(true);
+          }}
+        />
+        {addrTouched && address.trim() && addrCheck && (
+          <p
+            className={`mt-1 text-xs ${
+              addrCheck.ok ? "text-success" : "text-danger"
+            }`}
+          >
+            {addrCheck.ok ? t("addressOk") : t("addressInvalid")}
+          </p>
+        )}
+      </div>
+
+      {mode === "pool" && selectedPool?.mergeHint === "ltc-for-doge" && (
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-            {t("addressLabel")}
+            {t("mergeLtcLabel")}
           </label>
           <input
             type="text"
-            value={address}
-            onChange={(e) => {
-              setAddress(e.target.value);
-              setAddrTouched(true);
-            }}
-            placeholder={t("addressPlaceholder")}
+            value={mergeLtc}
+            onChange={(e) => setMergeLtc(e.target.value)}
+            placeholder={t("mergeLtcPlaceholder")}
             spellCheck={false}
-            autoComplete="off"
             disabled={mining}
             className={inputCls}
             style={{ borderRadius: 0 }}
           />
-          <WalletConnectBar
-            coin={coin}
-            mining={mining}
-            address={address}
-            onAddress={(addr) => {
-              setAddress(addr);
-              setAddrTouched(true);
-            }}
-          />
-          <p className="mt-1.5 text-xs text-muted">{t("addressHint")}</p>
-          {addrTouched && address.trim() && addrCheck && (
+          {mergeLtc.trim() && mergeLtcCheck && (
             <p
               className={`mt-1 text-xs ${
-                addrCheck.ok ? "text-success" : "text-danger"
+                mergeLtcCheck.ok ? "text-success" : "text-danger"
               }`}
             >
-              {addrCheck.ok ? t("addressOk") : t("addressInvalid")}
+              {mergeLtcCheck.ok ? t("addressOk") : t("addressInvalid")}
             </p>
           )}
         </div>
+      )}
 
-        {mode === "pool" && selectedPool?.mergeHint === "ltc-for-doge" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-              {t("mergeLtcLabel")}
-            </label>
-            <input
-              type="text"
-              value={mergeLtc}
-              onChange={(e) => setMergeLtc(e.target.value)}
-              placeholder={t("mergeLtcPlaceholder")}
-              spellCheck={false}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+          {t("perfMode")}
+        </label>
+        <div className="mb-2 flex flex-wrap gap-2">
+          {workerPresets.map((n) => (
+            <button
+              key={n}
+              type="button"
               disabled={mining}
-              className={inputCls}
+              onClick={() => setWorkerCount(n)}
+              className={`border-2 px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+                workerCount === n
+                  ? "border-brand bg-brand text-zinc-950 shadow-[2px_2px_0_#000]"
+                  : "border-border text-muted hover:border-zinc-500 hover:text-zinc-200"
+              }`}
               style={{ borderRadius: 0 }}
-            />
-            <p className="mt-1.5 text-xs text-muted">{t("mergeLtcHint")}</p>
-            {mergeLtc.trim() && mergeLtcCheck && (
-              <p
-                className={`mt-1 text-xs ${
-                  mergeLtcCheck.ok ? "text-success" : "text-danger"
-                }`}
-              >
-                {mergeLtcCheck.ok ? t("addressOk") : t("addressInvalid")}
-              </p>
-            )}
-          </div>
+              aria-pressed={workerCount === n}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={1}
+            max={workerMax}
+            step={1}
+            value={Math.min(workerCount, workerMax)}
+            disabled={mining}
+            onChange={(e) =>
+              setWorkerCount(clampWorkerCount(Number(e.target.value)))
+            }
+            className="w-full accent-[#f5a623] disabled:opacity-50"
+            aria-label={t("workersLabel")}
+          />
+          <span className="mono shrink-0 text-sm font-semibold text-brand">
+            {workerCount}
+          </span>
+        </div>
+        {workerLagWarn && (
+          <p className="mt-1.5 text-xs text-warning">{t("workersLagWarn")}</p>
         )}
-
-        {mode === "pool" && (
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-              {t("passwordLabel")}
-            </label>
-            <input
-              type="text"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={mining}
-              className={`${inputCls} max-w-xs`}
-              style={{ borderRadius: 0 }}
-            />
-          </div>
-        )}
-
-        {/* Desktop CTA inside setup */}
-        <div className="hidden lg:block">{startStopControls}</div>
       </div>
+
+      {mode === "pool" && (
+        <div>
+          <button
+            type="button"
+            className="mb-1.5 text-sm font-medium text-zinc-300 underline-offset-2 hover:underline"
+            onClick={() => setAdvancedOpen((v) => !v)}
+            aria-expanded={advancedOpen}
+          >
+            {t("advanced")} {advancedOpen ? "▾" : "▸"}
+          </button>
+          {advancedOpen && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+                {t("passwordLabel")}
+              </label>
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={mining}
+                className={`${inputCls} max-w-xs`}
+                style={{ borderRadius: 0 }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  /* —— SETUP panel —— */
+  const setupPanel = (
+    <section
+      id="settings"
+      className="dest-section flex min-h-0 flex-col gap-2"
+      aria-label={t("setup")}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="pixel-label text-brand">{t("setup")}</div>
+        {mining && (
+          <button
+            type="button"
+            className="hidden text-xs text-brand underline-offset-2 hover:underline lg:inline"
+            onClick={() => setSetupMiningCollapsed((v) => !v)}
+          >
+            {setupMiningCollapsed ? t("expandSetup") : t("collapseSetup")}
+          </button>
+        )}
+      </div>
+
+      {/* OS-6: mining collapsed summary (desktop) */}
+      {mining && setupMiningCollapsed ? (
+        <div className="pixel-panel flex flex-col gap-3 p-3">
+          <p className="truncate text-xs text-muted">{setupSummaryLine}</p>
+          <div className="hidden lg:block">{startStopControls}</div>
+        </div>
+      ) : (
+        <>
+          {/* OS-5: mobile accordion default closed */}
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-2 border-2 border-border bg-surface-2 px-3 py-2.5 text-left text-sm lg:hidden"
+            style={{ borderRadius: 0 }}
+            onClick={() => setMobileSetupOpen((v) => !v)}
+            aria-expanded={mobileSetupOpen}
+          >
+            <span className="min-w-0">
+              <span className="font-medium text-zinc-200">
+                {mobileSetupOpen ? "▾" : "▸"} {t("settingsToggle")}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-muted">
+                {setupSummaryLine || t("setup")}
+              </span>
+            </span>
+          </button>
+
+          <div
+            className={`pixel-panel min-h-0 flex-1 space-y-3 overflow-y-auto p-3 sm:p-4 ${
+              mobileSetupOpen ? "block" : "hidden"
+            } lg:block`}
+          >
+            {setupFields}
+            <div className="hidden lg:block">{startStopControls}</div>
+          </div>
+        </>
+      )}
     </section>
   );
 
+  const layerTitle =
+    layer === "rank"
+      ? t("rankTitle")
+      : layer === "about"
+        ? t("aboutTitle")
+        : layer === "pools"
+          ? t("poolDetails")
+          : "";
+
   return (
-    <div className="min-h-screen bg-canvas pb-24 lg:pb-16">
-      <div className="mx-auto max-w-6xl px-4 pb-8 pt-6 sm:px-6">
+    <div className="flex min-h-dvh flex-col bg-canvas pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] lg:h-dvh lg:max-h-dvh lg:overflow-hidden lg:pb-0">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col min-h-0 px-4 pt-4 sm:px-6 lg:overflow-hidden">
         {/* Top shell — brand · mode segmented (Q1) · status lamp · language */}
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <header className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center border-2 border-border bg-surface shadow-[2px_2px_0_#000]">
+            <div className="flex h-10 w-10 items-center justify-center border-2 border-border bg-surface shadow-[2px_2px_0_#000] sm:h-11 sm:w-11">
               <Image
                 src="/onyx-mark-64.png"
                 alt="Onyx Labs"
@@ -1308,7 +1467,9 @@ export function MinerApp() {
                 </h1>
                 <span className="text-xs text-muted">{t("brandSub")}</span>
               </div>
-              <p className="text-xs text-muted sm:text-sm">{t("tagline")}</p>
+              <p className="hidden text-xs text-muted sm:block sm:text-sm">
+                {t("tagline")}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -1329,58 +1490,38 @@ export function MinerApp() {
           </div>
         </header>
 
-        {/* dest-mine: character + HUD + setup + sticky start (single-page) */}
+        {/* dest-mine: setup + HUD — OS-1 desktop no page scroll */}
         <div
           id="mine"
-          className="dest-section grid gap-5 lg:grid-cols-[minmax(380px,460px)_1fr] lg:items-start"
+          className="dest-section grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(360px,420px)_1fr] lg:items-stretch lg:overflow-hidden"
         >
-          <div className="order-2 lg:order-1">{setupPanel}</div>
-          <div className="order-1 lg:order-2">{hudPanel}</div>
+          <div className="order-2 flex min-h-0 flex-col lg:order-1 lg:overflow-hidden">
+            {setupPanel}
+          </div>
+          <div className="order-1 flex min-h-0 flex-col lg:order-2 lg:overflow-hidden">
+            {hudPanel}
+          </div>
         </div>
 
-        <div className="mt-5">
-          <RankBoardPanel
-            board={rankBoard}
-            currentWallet={address}
-            demoMode={mode === "demo"}
-          />
+        {/* Mobile shortcuts (OS-3) — text links, not full tables */}
+        <div className="mt-3 flex shrink-0 flex-wrap gap-3 text-sm lg:hidden">
+          <button
+            type="button"
+            className="text-brand underline-offset-2 hover:underline"
+            onClick={() => openLayer("rank")}
+          >
+            {t("shortcutRank")}
+          </button>
+          <button
+            type="button"
+            className="text-brand underline-offset-2 hover:underline"
+            onClick={() => openLayer("about")}
+          >
+            {t("shortcutAbout")}
+          </button>
         </div>
 
-        {/* dest-about: O2 collapsible disclaimer + how-it-works */}
-        <section
-          id="about"
-          className="dest-section mb-8 mt-6 space-y-4"
-          aria-label={t("aboutTitle")}
-        >
-          <div className="pixel-label text-brand">{t("aboutTitle")}</div>
-          <details className="border-2 border-warning/40 bg-warning/5 open:bg-warning/10">
-            <summary className="cursor-pointer list-none px-3 py-2 text-sm text-warning marker:content-none [&::-webkit-details-marker]:hidden">
-              <span className="font-semibold">{t("disclaimerTitle")}</span>
-              <span className="mx-2 text-warning/60">·</span>
-              <span className="text-zinc-300">{t("disclaimerSummary")}</span>
-              <span className="ml-2 text-xs text-muted underline">
-                {t("disclaimerDetails")}
-              </span>
-            </summary>
-            <div className="border-t border-warning/30 px-3 pb-3 pt-2">
-              <p className="text-sm leading-relaxed text-zinc-300">
-                {t("disclaimer")}
-              </p>
-              <p className="mt-2 text-xs text-muted">{t("privacy")}</p>
-              <p className="mt-1 text-xs text-muted">{t("proxyNote")}</p>
-            </div>
-          </details>
-          <details className="pixel-panel p-4">
-            <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
-              {t("howItWorks")}
-            </summary>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              {t("howBody")}
-            </p>
-          </details>
-        </section>
-
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t-2 border-border pt-6 text-xs text-muted">
+        <footer className="mt-3 hidden shrink-0 flex-wrap items-center justify-between gap-2 border-t-2 border-border pt-3 text-xs text-muted lg:flex">
           <span>{t("footer")}</span>
           <a
             href="https://onyxlab.dev"
@@ -1393,16 +1534,90 @@ export function MinerApp() {
         </footer>
       </div>
 
-      {/* Sticky Start on mobile — P0: no bottom tab (Q3=P1) */}
+      {/* Sticky Start on mobile — OS-5; expanding settings must not cover Stop */}
       <div className="sticky-start-bar fixed inset-x-0 bottom-0 z-30 border-t-2 border-border bg-canvas/95 p-3 backdrop-blur lg:hidden">
         {startStopControls}
       </div>
+
+      {/* OS-2 / OS-3 layers: pools / rank / about */}
+      {layer !== "none" && (
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-label={layerTitle}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeLayer();
+          }}
+        >
+          <div className="flex max-h-[85dvh] w-full max-w-2xl flex-col border-2 border-border bg-canvas shadow-[4px_4px_0_#000] sm:max-h-[80dvh]">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b-2 border-border px-4 py-3">
+              <h2 className="pixel-label text-brand">{layerTitle}</h2>
+              <button
+                type="button"
+                className="pixel-btn border-2 border-border bg-surface-2 px-3 py-1.5 text-xs text-zinc-200 hover:border-zinc-500"
+                onClick={closeLayer}
+              >
+                {t("closeLayer")}
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {layer === "pools" && poolPickerBody}
+              {layer === "rank" && (
+                <RankBoardPanel
+                  board={rankBoard}
+                  currentWallet={address}
+                  demoMode={mode === "demo"}
+                />
+              )}
+              {layer === "about" && (
+                <section
+                  id="about"
+                  className="dest-section space-y-4"
+                  aria-label={t("aboutTitle")}
+                >
+                  <details
+                    className="border-2 border-warning/40 bg-warning/5 open:bg-warning/10"
+                    open
+                  >
+                    <summary className="cursor-pointer list-none px-3 py-2 text-sm text-warning marker:content-none [&::-webkit-details-marker]:hidden">
+                      <span className="font-semibold">
+                        {t("disclaimerTitle")}
+                      </span>
+                      <span className="mx-2 text-warning/60">·</span>
+                      <span className="text-zinc-300">
+                        {t("disclaimerSummary")}
+                      </span>
+                    </summary>
+                    <div className="border-t border-warning/30 px-3 pb-3 pt-2">
+                      <p className="text-sm leading-relaxed text-zinc-300">
+                        {t("disclaimer")}
+                      </p>
+                      <p className="mt-2 text-xs text-muted">{t("privacy")}</p>
+                      <p className="mt-1 text-xs text-muted">{t("proxyNote")}</p>
+                    </div>
+                  </details>
+                  <details className="pixel-panel p-4" open>
+                    <summary className="cursor-pointer text-sm font-semibold text-zinc-200">
+                      {t("howItWorks")}
+                    </summary>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                      {t("howBody")}
+                    </p>
+                  </details>
+                  <p className="text-xs text-muted">{t("footer")}</p>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (
         <div
           className={
-            "toast-bar fixed bottom-20 left-1/2 z-40 max-w-sm -translate-x-1/2 px-4 py-2.5 text-sm text-zinc-100 lg:bottom-8" +
+            "toast-bar fixed bottom-20 left-1/2 z-50 max-w-sm -translate-x-1/2 px-4 py-2.5 text-sm text-zinc-100 lg:bottom-8" +
             (toastTone === "rare" ? " toast-bar--rare" : "")
           }
           role="status"
